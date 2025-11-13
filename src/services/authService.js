@@ -1,61 +1,110 @@
-import axios from 'axios'
-
-const API_URL = 'http://localhost/suministros.indrhi.gob.do/wp-json/indrhi/v1'
+import { supabase } from '../lib/supabaseClient'
 
 export const authService = {
-  login: async (username, password) => {
+  login: async (usernameOrEmail, password) => {
     try {
-      const response = await axios.post(`${API_URL}/login`, {
-        username,
-        password
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
+      // Intentar login con email (Supabase requiere email)
+      // Si el usuario proporciona username, primero buscar el email
+      let email = usernameOrEmail
+
+      // Si no parece un email, buscar en usuarios_departamentos
+      if (!usernameOrEmail.includes('@')) {
+        const { data: userData, error: userError } = await supabase
+          .from('sum_usuarios_departamentos')
+          .select('email')
+          .eq('username', usernameOrEmail)
+          .single()
+
+        if (userError || !userData) {
+          return {
+            success: false,
+            message: 'Usuario no encontrado'
+          }
         }
+        email = userData.email
+      }
+
+      // Autenticar con Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       })
 
-      if (response.data.success && response.data.token) {
-        localStorage.setItem('indrhi_token', response.data.token)
-        localStorage.setItem('indrhi_user', JSON.stringify(response.data.user))
+      if (error) {
         return {
-          success: true,
-          user: response.data.user
+          success: false,
+          message: error.message || 'Error en la autenticación'
         }
       }
 
+      // Obtener información adicional del usuario desde la tabla usuarios_departamentos
+      const { data: userInfo, error: userInfoError } = await supabase
+        .from('sum_usuarios_departamentos')
+        .select(`
+          *,
+          sum_departamentos:departamento_id (
+            id,
+            codigo,
+            departamento
+          )
+        `)
+        .eq('email', email)
+        .single()
+
+      const userData = {
+        id: data.user.id,
+        email: data.user.email,
+        username: userInfo?.username || email.split('@')[0],
+        rol: userInfo?.rol || 'Usuario',
+        departamento_id: userInfo?.departamento_id || null,
+        departamento: userInfo?.sum_departamentos?.departamento || null
+      }
+
+      localStorage.setItem('indrhi_user', JSON.stringify(userData))
+      localStorage.setItem('indrhi_session', JSON.stringify(data.session))
+      
       return {
-        success: false,
-        message: 'Error en la autenticación'
+        success: true,
+        user: userData
       }
     } catch (error) {
       console.error('Error de login:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al conectar con el servidor'
+        message: error.message || 'Error al conectar con el servidor'
       }
     }
   },
 
-  validateToken: async (token) => {
+  validateToken: async () => {
     try {
-      const response = await axios.post(`${API_URL}/validate`, {
-        token
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const { data: { user }, error } = await supabase.auth.getUser()
+      
+      if (error || !user) {
+        // Limpiar datos locales si el token es inválido
+        localStorage.removeItem('indrhi_user')
+        localStorage.removeItem('indrhi_session')
+        return false
+      }
 
-      return response.data.valid === true
+      return true
     } catch (error) {
       console.error('Error validando token:', error)
       return false
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('indrhi_token')
-    localStorage.removeItem('indrhi_user')
+  logout: async () => {
+    try {
+      await supabase.auth.signOut()
+      localStorage.removeItem('indrhi_user')
+      localStorage.removeItem('indrhi_session')
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error)
+      // Limpiar localStorage incluso si hay error
+      localStorage.removeItem('indrhi_user')
+      localStorage.removeItem('indrhi_session')
+    }
   },
 
   getCurrentUser: () => {
@@ -64,7 +113,20 @@ export const authService = {
   },
 
   isAuthenticated: () => {
-    return !!localStorage.getItem('indrhi_token')
+    const userStr = localStorage.getItem('indrhi_user')
+    const sessionStr = localStorage.getItem('indrhi_session')
+    return !!(userStr && sessionStr)
+  },
+
+  // Método para obtener el token de sesión actual
+  getSession: async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error) throw error
+      return session
+    } catch (error) {
+      console.error('Error obteniendo sesión:', error)
+      return null
+    }
   }
 }
-

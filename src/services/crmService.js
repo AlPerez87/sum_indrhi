@@ -1,12 +1,14 @@
-import axios from 'axios'
+import { supabase } from '../lib/supabaseClient'
 
-const API_URL = 'http://localhost/suministros.indrhi.gob.do/wp-json/indrhi/v1'
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('indrhi_token')
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
+// Función auxiliar para obtener el usuario actual
+const getCurrentUserId = () => {
+  const userStr = localStorage.getItem('indrhi_user')
+  if (!userStr) return null
+  try {
+    const user = JSON.parse(userStr)
+    return user.id
+  } catch {
+    return null
   }
 }
 
@@ -14,10 +16,18 @@ export const crmService = {
   // ========== ARTÍCULOS ==========
   getUnidades: async () => {
     try {
-      const response = await axios.get(`${API_URL}/articulos/unidades`, {
-        headers: getAuthHeader()
-      })
-      const unidades = Array.isArray(response.data) ? response.data : []
+      // Las unidades son constantes según el sistema
+      const unidades = [
+        { id: 1, nombre: 'UNIDAD' },
+        { id: 2, nombre: 'RESMA' },
+        { id: 3, nombre: 'BLOCKS O TALONARIO' },
+        { id: 4, nombre: 'PAQUETE' },
+        { id: 5, nombre: 'GALON' },
+        { id: 6, nombre: 'YARDA' },
+        { id: 7, nombre: 'LIBRA' },
+        { id: 8, nombre: 'CAJA' }
+      ]
+      
       return {
         success: true,
         data: unidades
@@ -26,27 +36,40 @@ export const crmService = {
       console.error('Error al obtener unidades:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener unidades',
+        message: error.message || 'Error al obtener unidades',
         data: []
       }
     }
   },
 
-  getArticulos: async () => {
+  getArticulos: async (page = 1, limit = 10, search = '') => {
     try {
-      const response = await axios.get(`${API_URL}/articulos`, {
-        headers: getAuthHeader()
-      })
+      let query = supabase
+        .from('sum_articulos')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (search) {
+        query = query.or(`codigo.ilike.%${search}%,descripcion.ilike.%${search}%`)
+      }
+
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+
+      const { data, error, count } = await query.range(from, to)
+
+      if (error) throw error
+
       return {
         success: true,
-        data: response.data.data || [],
-        total: response.data.total || 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener artículos:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener artículos',
+        message: error.message || 'Error al obtener artículos',
         data: []
       }
     }
@@ -54,74 +77,104 @@ export const crmService = {
 
   createArticulo: async (articulo) => {
     try {
-      const response = await axios.post(`${API_URL}/articulos`, articulo, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_articulos')
+        .insert([articulo])
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Artículo creado'
+        message: 'Artículo creado correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al crear artículo:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al crear artículo'
+        message: error.message || 'Error al crear artículo'
       }
     }
   },
 
   updateArticulo: async (id, articulo) => {
     try {
-      const response = await axios.put(`${API_URL}/articulos/${id}`, articulo, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_articulos')
+        .update(articulo)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Artículo actualizado'
+        message: 'Artículo actualizado correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al actualizar artículo:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al actualizar artículo'
+        message: error.message || 'Error al actualizar artículo'
       }
     }
   },
 
   deleteArticulo: async (id) => {
     try {
-      const response = await axios.delete(`${API_URL}/articulos/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { error } = await supabase
+        .from('sum_articulos')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Artículo eliminado'
+        message: 'Artículo eliminado correctamente'
       }
     } catch (error) {
       console.error('Error al eliminar artículo:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al eliminar artículo'
+        message: error.message || 'Error al eliminar artículo'
       }
     }
   },
 
   // ========== DEPARTAMENTOS ==========
-  getDepartamentos: async () => {
+  getDepartamentos: async (page = 1, limit = 10, search = '') => {
     try {
-      const response = await axios.get(`${API_URL}/departamentos`, {
-        headers: getAuthHeader()
-      })
+      let query = supabase
+        .from('sum_departamentos')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (search) {
+        query = query.or(`codigo.ilike.%${search}%,departamento.ilike.%${search}%`)
+      }
+
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+
+      const { data, error, count } = await query.range(from, to)
+
+      if (error) throw error
+
       return {
         success: true,
-        data: response.data.data || [],
-        total: response.data.total || 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener departamentos:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener departamentos',
+        message: error.message || 'Error al obtener departamentos',
         data: []
       }
     }
@@ -129,75 +182,102 @@ export const crmService = {
 
   createDepartamento: async (departamento) => {
     try {
-      const response = await axios.post(`${API_URL}/departamentos`, departamento, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_departamentos')
+        .insert([departamento])
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Departamento creado'
+        message: 'Departamento creado correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al crear departamento:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al crear departamento'
+        message: error.message || 'Error al crear departamento'
       }
     }
   },
 
   updateDepartamento: async (id, departamento) => {
     try {
-      const response = await axios.put(`${API_URL}/departamentos/${id}`, departamento, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_departamentos')
+        .update(departamento)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Departamento actualizado'
+        message: 'Departamento actualizado correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al actualizar departamento:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al actualizar departamento'
+        message: error.message || 'Error al actualizar departamento'
       }
     }
   },
 
   deleteDepartamento: async (id) => {
     try {
-      const response = await axios.delete(`${API_URL}/departamentos/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { error } = await supabase
+        .from('sum_departamentos')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Departamento eliminado'
+        message: 'Departamento eliminado correctamente'
       }
     } catch (error) {
       console.error('Error al eliminar departamento:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al eliminar departamento'
+        message: error.message || 'Error al eliminar departamento'
       }
     }
   },
 
   // ========== USUARIOS ==========
-
   getUsuariosDepartamentos: async () => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios-departamentos`, {
-        headers: getAuthHeader()
-      })
+      const { data, error, count } = await supabase
+        .from('sum_usuarios_departamentos')
+        .select(`
+          *,
+          sum_departamentos:departamento_id (
+            id,
+            codigo,
+            departamento
+          )
+        `, { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (error) throw error
+
       return {
         success: true,
-        data: response.data.data || [],
-        total: response.data.total || 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener usuarios:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener usuarios',
+        message: error.message || 'Error al obtener usuarios',
         data: []
       }
     }
@@ -205,61 +285,83 @@ export const crmService = {
 
   updateUsuarioDepartamento: async (id, departamentoId) => {
     try {
-      const response = await axios.put(
-        `${API_URL}/usuarios-departamentos/${id}`,
-        { departamento_id: departamentoId },
-        { headers: getAuthHeader() }
-      )
+      const { data, error } = await supabase
+        .from('sum_usuarios_departamentos')
+        .update({ departamento_id: departamentoId })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Departamento actualizado'
+        message: 'Departamento actualizado correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al actualizar departamento:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al actualizar departamento'
+        message: error.message || 'Error al actualizar departamento'
       }
     }
   },
 
   updateUsuarioPassword: async (id, password) => {
     try {
-      const response = await axios.put(
-        `${API_URL}/usuarios-departamentos/${id}/password`,
-        { password },
-        { headers: getAuthHeader() }
+      // Obtener el user_id de la tabla usuarios_departamentos
+      const { data: usuario, error: usuarioError } = await supabase
+        .from('sum_usuarios_departamentos')
+        .select('user_id')
+        .eq('id', id)
+        .single()
+
+      if (usuarioError || !usuario) {
+        throw new Error('Usuario no encontrado')
+      }
+
+      // Actualizar contraseña en Supabase Auth
+      const { error } = await supabase.auth.admin.updateUserById(
+        usuario.user_id,
+        { password }
       )
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Contraseña actualizada'
+        message: 'Contraseña actualizada correctamente'
       }
     } catch (error) {
       console.error('Error al actualizar contraseña:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al actualizar contraseña'
+        message: error.message || 'Error al actualizar contraseña'
       }
     }
   },
 
   // ========== ENTRADA DE MERCANCÍA ==========
-
   getEntradasMercancia: async () => {
     try {
-      const response = await axios.get(`${API_URL}/entrada-mercancia`, {
-        headers: getAuthHeader()
-      })
+      const { data, error, count } = await supabase
+        .from('sum_entrada_mercancia')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (error) throw error
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
-        total: Array.isArray(response.data) ? response.data.length : 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener entradas:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener entradas',
+        message: error.message || 'Error al obtener entradas',
         data: []
       }
     }
@@ -267,78 +369,143 @@ export const crmService = {
 
   getEntradaMercanciaDetalle: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/entrada-mercancia/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_entrada_mercancia')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        data: response.data
+        data
       }
     } catch (error) {
       console.error('Error al obtener detalle de entrada:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener detalle'
+        message: error.message || 'Error al obtener detalle'
       }
     }
   },
 
   getSiguienteNumeroEntrada: async () => {
     try {
-      const response = await axios.get(`${API_URL}/entrada-mercancia/siguiente-numero`, {
-        headers: getAuthHeader()
-      })
+      const currentYear = new Date().getFullYear()
+      
+      // Obtener el último número de entrada del año actual
+      const { data, error } = await supabase
+        .from('sum_entrada_mercancia')
+        .select('numero_entrada')
+        .like('numero_entrada', `INDRHI-EM-${currentYear}-%`)
+        .order('id', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      let siguienteNumero = 1
+      if (data && data.length > 0) {
+        const ultimoNumero = data[0].numero_entrada
+        const match = ultimoNumero.match(/-(\d+)$/)
+        if (match) {
+          siguienteNumero = parseInt(match[1]) + 1
+        }
+      }
+
+      const numeroFormateado = `INDRHI-EM-${currentYear}-${String(siguienteNumero).padStart(4, '0')}`
+
       return {
         success: true,
-        data: response.data
+        data: { siguiente_numero: numeroFormateado }
       }
     } catch (error) {
       console.error('Error al obtener siguiente número:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener siguiente número'
+        message: error.message || 'Error al obtener siguiente número'
       }
     }
   },
 
   createEntradaMercancia: async (entrada) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/entrada-mercancia`,
-        entrada,
-        { headers: getAuthHeader() }
-      )
+      const { data, error } = await supabase
+        .from('sum_entrada_mercancia')
+        .insert([entrada])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Actualizar existencia de artículos
+      if (entrada.articulos_cantidades_unidades) {
+        const articulos = JSON.parse(entrada.articulos_cantidades_unidades)
+        
+        for (const articulo of articulos) {
+          // Buscar artículo por código
+          const { data: artData, error: artError } = await supabase
+            .from('sum_articulos')
+            .select('id, existencia')
+            .eq('codigo', articulo.codigo)
+            .single()
+
+          if (!artError && artData) {
+            const nuevaExistencia = (artData.existencia || 0) + articulo.cantidad
+            await supabase
+              .from('sum_articulos')
+              .update({ existencia: nuevaExistencia })
+              .eq('id', artData.id)
+          }
+        }
+      }
+
       return {
         success: true,
-        message: response.data.message || 'Entrada creada correctamente',
-        data: response.data
+        message: 'Entrada creada correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al crear entrada:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al crear entrada'
+        message: error.message || 'Error al crear entrada'
       }
     }
   },
 
   // ========== SOLICITUDES DE ARTÍCULOS ==========
-
   getSolicitudes: async () => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes`, {
-        headers: getAuthHeader()
-      })
+      const userId = getCurrentUserId()
+      
+      let query = supabase
+        .from('sum_solicitudes')
+        .select(`
+          *,
+          sum_departamentos:departamento_id (
+            id,
+            codigo,
+            departamento
+          )
+        `, { count: 'exact' })
+        .order('id', { ascending: false })
+
+      // Los usuarios solo ven sus propias solicitudes (RLS debería manejar esto)
+      const { data, error, count } = await query
+
+      if (error) throw error
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
-        total: Array.isArray(response.data) ? response.data.length : 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener solicitudes:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener solicitudes',
+        message: error.message || 'Error al obtener solicitudes',
         data: []
       }
     }
@@ -346,136 +513,238 @@ export const crmService = {
 
   getSolicitudDetalle: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_solicitudes')
+        .select(`
+          *,
+          sum_departamentos:departamento_id (
+            id,
+            codigo,
+            departamento
+          )
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      // Parsear articulos_cantidades si es string
+      if (data.articulos_cantidades && typeof data.articulos_cantidades === 'string') {
+        data.articulos = JSON.parse(data.articulos_cantidades)
+      } else {
+        data.articulos = data.articulos_cantidades
+      }
+
       return {
         success: true,
-        data: response.data
+        data
       }
     } catch (error) {
       console.error('Error al obtener detalle de solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener detalle'
+        message: error.message || 'Error al obtener detalle'
       }
     }
   },
 
   getSiguienteNumeroSolicitud: async () => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes/siguiente-numero`, {
-        headers: getAuthHeader()
-      })
+      // Obtener el último número de solicitud
+      const { data, error } = await supabase
+        .from('sum_solicitudes')
+        .select('numero_solicitud')
+        .order('id', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+
+      let siguienteNumero = 1
+      if (data && data.length > 0) {
+        const ultimoNumero = parseInt(data[0].numero_solicitud) || 0
+        siguienteNumero = ultimoNumero + 1
+      }
+
       return {
         success: true,
-        data: response.data
+        data: { siguiente_numero: siguienteNumero.toString() }
       }
     } catch (error) {
       console.error('Error al obtener siguiente número:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener siguiente número'
+        message: error.message || 'Error al obtener siguiente número'
       }
     }
   },
 
   createSolicitud: async (solicitud) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/solicitudes`,
-        solicitud,
-        { headers: getAuthHeader() }
-      )
+      const userId = getCurrentUserId()
+      if (!userId) {
+        throw new Error('Usuario no autenticado')
+      }
+
+      // Obtener nombre del departamento
+      const { data: deptData } = await supabase
+        .from('sum_departamentos')
+        .select('departamento')
+        .eq('id', solicitud.departamento_id)
+        .single()
+
+      const solicitudData = {
+        numero_solicitud: solicitud.numero_solicitud,
+        fecha: solicitud.fecha,
+        departamento: deptData?.departamento || '',
+        departamento_id: solicitud.departamento_id,
+        usuario_id: userId,
+        articulos_cantidades: JSON.stringify(solicitud.articulos || [])
+      }
+
+      const { data, error } = await supabase
+        .from('sum_solicitudes')
+        .insert([solicitudData])
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud creada correctamente',
-        data: response.data
+        message: 'Solicitud creada correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al crear solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al crear solicitud'
+        message: error.message || 'Error al crear solicitud'
       }
     }
   },
 
   updateSolicitud: async (id, solicitud) => {
     try {
-      const response = await axios.put(
-        `${API_URL}/solicitudes/${id}`,
-        solicitud,
-        { headers: getAuthHeader() }
-      )
+      // Obtener nombre del departamento si cambió
+      let departamento = solicitud.departamento
+      if (solicitud.departamento_id && !departamento) {
+        const { data: deptData } = await supabase
+          .from('sum_departamentos')
+          .select('departamento')
+          .eq('id', solicitud.departamento_id)
+          .single()
+        departamento = deptData?.departamento || ''
+      }
+
+      const updateData = {
+        ...solicitud,
+        departamento,
+        articulos_cantidades: solicitud.articulos 
+          ? JSON.stringify(solicitud.articulos)
+          : solicitud.articulos_cantidades
+      }
+
+      const { data, error } = await supabase
+        .from('sum_solicitudes')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud actualizada correctamente'
+        message: 'Solicitud actualizada correctamente',
+        data
       }
     } catch (error) {
       console.error('Error al actualizar solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al actualizar solicitud'
+        message: error.message || 'Error al actualizar solicitud'
       }
     }
   },
 
   deleteSolicitud: async (id) => {
     try {
-      const response = await axios.delete(`${API_URL}/solicitudes/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { error } = await supabase
+        .from('sum_solicitudes')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud eliminada correctamente'
+        message: 'Solicitud eliminada correctamente'
       }
     } catch (error) {
       console.error('Error al eliminar solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al eliminar solicitud'
+        message: error.message || 'Error al eliminar solicitud'
       }
     }
   },
 
   enviarSolicitud: async (id) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/solicitudes/${id}/enviar`,
-        {},
-        { headers: getAuthHeader() }
-      )
+      // Obtener la solicitud
+      const { data: solicitud, error: solicitudError } = await supabase
+        .from('sum_solicitudes')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (solicitudError) throw solicitudError
+
+      // Mover a tabla de autorizar_solicitudes
+      const { error: insertError } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .insert([{
+          numero_solicitud: parseInt(solicitud.numero_solicitud),
+          fecha: solicitud.fecha,
+          departamento: solicitud.departamento,
+          articulos_cantidades: solicitud.articulos_cantidades
+        }])
+
+      if (insertError) throw insertError
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud enviada correctamente'
+        message: 'Solicitud enviada correctamente'
       }
     } catch (error) {
       console.error('Error al enviar solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al enviar solicitud'
+        message: error.message || 'Error al enviar solicitud'
       }
     }
   },
 
   // ========== AUTORIZAR SOLICITUDES ==========
-
   getAutorizarSolicitudes: async () => {
     try {
-      const response = await axios.get(`${API_URL}/autorizar-solicitudes`, {
-        headers: getAuthHeader()
-      })
+      const { data, error, count } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (error) throw error
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
-        total: Array.isArray(response.data) ? response.data.length : 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener solicitudes de autorización:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener solicitudes',
+        message: error.message || 'Error al obtener solicitudes',
         data: []
       }
     }
@@ -483,77 +752,123 @@ export const crmService = {
 
   getAutorizarSolicitudDetalle: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/autorizar-solicitudes/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      // Parsear articulos_cantidades
+      if (data.articulos_cantidades && typeof data.articulos_cantidades === 'string') {
+        data.articulos = JSON.parse(data.articulos_cantidades)
+      } else {
+        data.articulos = data.articulos_cantidades
+      }
+
       return {
         success: true,
-        data: response.data
+        data
       }
     } catch (error) {
       console.error('Error al obtener detalle de solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener detalle'
+        message: error.message || 'Error al obtener detalle'
       }
     }
   },
 
   rechazarSolicitud: async (id) => {
     try {
-      const response = await axios.delete(`${API_URL}/autorizar-solicitudes/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { error } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud rechazada correctamente'
+        message: 'Solicitud rechazada correctamente'
       }
     } catch (error) {
       console.error('Error al rechazar solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al rechazar solicitud'
+        message: error.message || 'Error al rechazar solicitud'
       }
     }
   },
 
   aprobarSolicitudes: async (ids) => {
     try {
-      const response = await axios.post(`${API_URL}/autorizar-solicitudes/aprobar`, 
-        { ids: Array.isArray(ids) ? ids : [ids] },
-        { headers: getAuthHeader() }
-      )
+      const idsArray = Array.isArray(ids) ? ids : [ids]
+      
+      // Obtener todas las solicitudes a aprobar
+      const { data: solicitudes, error: fetchError } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .select('*')
+        .in('id', idsArray)
+
+      if (fetchError) throw fetchError
+
+      // Insertar en solicitudes_aprobadas
+      const solicitudesAprobadas = solicitudes.map(s => ({
+        numero_solicitud: s.numero_solicitud,
+        fecha: s.fecha,
+        departamento: s.departamento,
+        articulos_cantidades: s.articulos_cantidades
+      }))
+
+      const { error: insertError } = await supabase
+        .from('sum_solicitudes_aprobadas')
+        .insert(solicitudesAprobadas)
+
+      if (insertError) throw insertError
+
+      // Eliminar de autorizar_solicitudes
+      const { error: deleteError } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .delete()
+        .in('id', idsArray)
+
+      if (deleteError) throw deleteError
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud(es) aprobada(s) correctamente',
-        data: response.data
+        message: `Solicitud(es) aprobada(s) correctamente`
       }
     } catch (error) {
       console.error('Error al aprobar solicitud(es):', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al aprobar solicitud(es)'
+        message: error.message || 'Error al aprobar solicitud(es)'
       }
     }
   },
 
   // ========== SOLICITUDES APROBADAS ==========
-
   getSolicitudesAprobadas: async () => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes-aprobadas`, {
-        headers: getAuthHeader()
-      })
+      const { data, error, count } = await supabase
+        .from('sum_solicitudes_aprobadas')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (error) throw error
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
-        total: Array.isArray(response.data) ? response.data.length : 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener solicitudes aprobadas:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener solicitudes',
+        message: error.message || 'Error al obtener solicitudes',
         data: []
       }
     }
@@ -561,59 +876,101 @@ export const crmService = {
 
   getSolicitudAprobadaDetalle: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes-aprobadas/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_solicitudes_aprobadas')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      // Parsear articulos_cantidades
+      if (data.articulos_cantidades && typeof data.articulos_cantidades === 'string') {
+        data.articulos = JSON.parse(data.articulos_cantidades)
+      } else {
+        data.articulos = data.articulos_cantidades
+      }
+
       return {
         success: true,
-        data: response.data
+        data
       }
     } catch (error) {
       console.error('Error al obtener detalle de solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener detalle'
+        message: error.message || 'Error al obtener detalle'
       }
     }
   },
 
   gestionarSolicitudAprobada: async (id, articulos) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/solicitudes-aprobadas/${id}/gestionar`,
-        { articulos },
-        { headers: getAuthHeader() }
-      )
+      // Obtener la solicitud aprobada
+      const { data: solicitud, error: solicitudError } = await supabase
+        .from('sum_solicitudes_aprobadas')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (solicitudError) throw solicitudError
+
+      // Actualizar articulos_cantidades con los artículos gestionados
+      const articulosActualizados = articulos || JSON.parse(solicitud.articulos_cantidades)
+      
+      // Mover a solicitudes_gestionadas
+      const { error: insertError } = await supabase
+        .from('sum_solicitudes_gestionadas')
+        .insert([{
+          numero_solicitud: solicitud.numero_solicitud,
+          fecha: solicitud.fecha,
+          departamento: solicitud.departamento,
+          articulos_cantidades: JSON.stringify(articulosActualizados)
+        }])
+
+      if (insertError) throw insertError
+
+      // Eliminar de solicitudes_aprobadas
+      const { error: deleteError } = await supabase
+        .from('sum_solicitudes_aprobadas')
+        .delete()
+        .eq('id', id)
+
+      if (deleteError) throw deleteError
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud gestionada correctamente'
+        message: 'Solicitud gestionada correctamente'
       }
     } catch (error) {
       console.error('Error al gestionar solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al gestionar solicitud'
+        message: error.message || 'Error al gestionar solicitud'
       }
     }
   },
 
   // ========== SOLICITUDES GESTIONADAS ==========
-
   getSolicitudesGestionadas: async () => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes-gestionadas`, {
-        headers: getAuthHeader()
-      })
+      const { data, error, count } = await supabase
+        .from('sum_solicitudes_gestionadas')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (error) throw error
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
-        total: Array.isArray(response.data) ? response.data.length : 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener solicitudes gestionadas:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener solicitudes',
+        message: error.message || 'Error al obtener solicitudes',
         data: []
       }
     }
@@ -621,59 +978,127 @@ export const crmService = {
 
   getSolicitudGestionadaDetalle: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes-gestionadas/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_solicitudes_gestionadas')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      // Parsear articulos_cantidades
+      if (data.articulos_cantidades && typeof data.articulos_cantidades === 'string') {
+        data.articulos = JSON.parse(data.articulos_cantidades)
+      } else {
+        data.articulos = data.articulos_cantidades
+      }
+
       return {
         success: true,
-        data: response.data
+        data
       }
     } catch (error) {
       console.error('Error al obtener detalle de solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener detalle'
+        message: error.message || 'Error al obtener detalle'
       }
     }
   },
 
   despacharSolicitudes: async (ids) => {
     try {
-      const response = await axios.post(`${API_URL}/solicitudes-gestionadas/despachar`, 
-        { ids: Array.isArray(ids) ? ids : [ids] },
-        { headers: getAuthHeader() }
-      )
+      const idsArray = Array.isArray(ids) ? ids : [ids]
+      
+      // Obtener todas las solicitudes a despachar
+      const { data: solicitudes, error: fetchError } = await supabase
+        .from('sum_solicitudes_gestionadas')
+        .select('*')
+        .in('id', idsArray)
+
+      if (fetchError) throw fetchError
+
+      // Obtener usuario actual para despachado_por
+      const userStr = localStorage.getItem('indrhi_user')
+      const user = userStr ? JSON.parse(userStr) : null
+      const despachadoPor = user?.username || user?.email || 'Usuario desconocido'
+
+      // Insertar en solicitudes_despachadas
+      const solicitudesDespachadas = solicitudes.map(s => ({
+        numero_solicitud: s.numero_solicitud,
+        fecha: s.fecha,
+        departamento: s.departamento,
+        articulos_cantidades: s.articulos_cantidades,
+        despachado_por: despachadoPor
+      }))
+
+      const { error: insertError } = await supabase
+        .from('sum_solicitudes_despachadas')
+        .insert(solicitudesDespachadas)
+
+      if (insertError) throw insertError
+
+      // Actualizar existencia de artículos (reducir stock)
+      for (const solicitud of solicitudes) {
+        const articulos = JSON.parse(solicitud.articulos_cantidades)
+        for (const articulo of articulos) {
+          const { data: artData } = await supabase
+            .from('sum_articulos')
+            .select('id, existencia')
+            .eq('codigo', articulo.codigo)
+            .single()
+
+          if (artData) {
+            const nuevaExistencia = Math.max(0, (artData.existencia || 0) - articulo.cantidad)
+            await supabase
+              .from('sum_articulos')
+              .update({ existencia: nuevaExistencia })
+              .eq('id', artData.id)
+          }
+        }
+      }
+
+      // Eliminar de solicitudes_gestionadas
+      const { error: deleteError } = await supabase
+        .from('sum_solicitudes_gestionadas')
+        .delete()
+        .in('id', idsArray)
+
+      if (deleteError) throw deleteError
+
       return {
         success: true,
-        message: response.data.message || 'Solicitud(es) despachada(s) correctamente',
-        data: response.data
+        message: `Solicitud(es) despachada(s) correctamente`
       }
     } catch (error) {
       console.error('Error al despachar solicitud(es):', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al despachar solicitud(es)'
+        message: error.message || 'Error al despachar solicitud(es)'
       }
     }
   },
 
   // ========== SOLICITUDES DESPACHADAS ==========
-
   getSolicitudesDespachadas: async () => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes-despachadas`, {
-        headers: getAuthHeader()
-      })
+      const { data, error, count } = await supabase
+        .from('sum_solicitudes_despachadas')
+        .select('*', { count: 'exact' })
+        .order('id', { ascending: false })
+
+      if (error) throw error
+
       return {
         success: true,
-        data: Array.isArray(response.data) ? response.data : [],
-        total: Array.isArray(response.data) ? response.data.length : 0
+        data: data || [],
+        total: count || 0
       }
     } catch (error) {
       console.error('Error al obtener solicitudes despachadas:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener solicitudes',
+        message: error.message || 'Error al obtener solicitudes',
         data: []
       }
     }
@@ -681,45 +1106,75 @@ export const crmService = {
 
   getSolicitudDespachadaDetalle: async (id) => {
     try {
-      const response = await axios.get(`${API_URL}/solicitudes-despachadas/${id}`, {
-        headers: getAuthHeader()
-      })
+      const { data, error } = await supabase
+        .from('sum_solicitudes_despachadas')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      // Parsear articulos_cantidades
+      if (data.articulos_cantidades && typeof data.articulos_cantidades === 'string') {
+        data.articulos = JSON.parse(data.articulos_cantidades)
+      } else {
+        data.articulos = data.articulos_cantidades
+      }
+
       return {
         success: true,
-        data: response.data
+        data
       }
     } catch (error) {
       console.error('Error al obtener detalle de solicitud:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al obtener detalle'
+        message: error.message || 'Error al obtener detalle'
       }
     }
   },
 
   // ========== CAMBIAR CONTRASEÑA ==========
-  
   cambiarPassword: async (userId, currentPassword, newPassword) => {
     try {
-      const response = await axios.put(
-        `${API_URL}/usuarios-departamentos/${userId}/password`,
-        {
-          current_password: currentPassword,
-          new_password: newPassword
-        },
-        { headers: getAuthHeader() }
-      )
+      // Verificar contraseña actual
+      const userStr = localStorage.getItem('indrhi_user')
+      const user = userStr ? JSON.parse(userStr) : null
+      
+      if (!user || !user.email) {
+        throw new Error('Usuario no encontrado')
+      }
+
+      // Verificar contraseña actual intentando hacer login
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword
+      })
+
+      if (verifyError) {
+        return {
+          success: false,
+          message: 'Contraseña actual incorrecta'
+        }
+      }
+
+      // Actualizar contraseña
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+
+      if (updateError) throw updateError
+
       return {
         success: true,
-        message: response.data.message || 'Contraseña actualizada correctamente'
+        message: 'Contraseña actualizada correctamente'
       }
     } catch (error) {
       console.error('Error al cambiar contraseña:', error)
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al cambiar la contraseña'
+        message: error.message || 'Error al cambiar la contraseña'
       }
     }
   }
 }
-

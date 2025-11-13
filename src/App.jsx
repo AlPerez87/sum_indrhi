@@ -24,11 +24,8 @@ function App() {
   }, [])
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('indrhi_token')
-    if (token) {
-      const isValid = await authService.validateToken(token)
-      setIsAuthenticated(isValid)
-    }
+    const isValid = await authService.validateToken()
+    setIsAuthenticated(isValid)
     setLoading(false)
   }
 
@@ -36,8 +33,8 @@ function App() {
     setIsAuthenticated(true)
   }
 
-  const handleLogout = () => {
-    authService.logout()
+  const handleLogout = async () => {
+    await authService.logout()
     setIsAuthenticated(false)
   }
 

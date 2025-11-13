@@ -7,33 +7,46 @@ Frontend moderno desarrollado en React para el Sistema de Suministros del Instit
 - **React 18** - Biblioteca de JavaScript para construir interfaces de usuario
 - **Vite** - Build tool y servidor de desarrollo ultra-rápido
 - **React Router DOM** - Enrutamiento en aplicaciones React
-- **Axios** - Cliente HTTP para realizar peticiones al backend
-- **CSS3** - Estilos modernos y responsivos
+- **Supabase** - Backend como servicio (BaaS) para autenticación y base de datos
+- **Tailwind CSS** - Framework CSS utility-first
+- **Lucide React** - Iconos modernos
 
 ## 📋 Requisitos Previos
 
 - Node.js 16 o superior
 - npm o yarn
-- WordPress instalado y funcionando (Backend)
-- Plugin "INDRHI Headless Auth" activado en WordPress
+- Cuenta en Supabase
+- Cuenta en Vercel (para despliegue)
 
 ## 🔧 Instalación
 
-1. **Instalar dependencias:**
+1. **Clonar el repositorio:**
+
 ```bash
-cd frontend-indrhi
+git clone https://github.com/tu-usuario/tu-repositorio.git
+cd tu-repositorio/frontend-indrhi
+```
+
+2. **Instalar dependencias:**
+
+```bash
 npm install
 ```
 
-2. **Configurar la URL del API:**
+3. **Configurar variables de entorno:**
 
-Edita el archivo `src/services/authService.js` y ajusta la URL del API si es necesario:
+Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
 
-```javascript
-const API_URL = 'http://localhost/suministros.indrhi.gob.do/wp-json/indrhi/v1'
+```env
+VITE_SUPABASE_URL=tu-url-de-supabase
+VITE_SUPABASE_ANON_KEY=tu-clave-anon-de-supabase
+VITE_ENVIRONMENT=development
 ```
 
-3. **Ejecutar el servidor de desarrollo:**
+**⚠️ IMPORTANTE**: No subas el archivo `.env` a GitHub. Ya está incluido en `.gitignore`.
+
+4. **Ejecutar el servidor de desarrollo:**
+
 ```bash
 npm run dev
 ```
@@ -47,35 +60,48 @@ frontend-indrhi/
 ├── public/
 │   └── logo-indrhi.png          # Logo de la institución
 ├── src/
-│   ├── components/
-│   │   ├── Login.jsx            # Componente de login
-│   │   ├── Login.css            # Estilos del login
-│   │   ├── Dashboard.jsx        # Panel principal
-│   │   └── Dashboard.css        # Estilos del dashboard
+│   ├── components/              # Componentes React
+│   │   ├── Login.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── Articulos.jsx
+│   │   ├── Departamentos.jsx
+│   │   └── ...
 │   ├── services/
-│   │   └── authService.js       # Servicio de autenticación
+│   │   ├── authService.js       # Servicio de autenticación con Supabase
+│   │   └── crmService.js        # Servicios del CRM con Supabase
+│   ├── lib/
+│   │   └── supabaseClient.js   # Cliente de Supabase
+│   ├── context/
+│   │   └── ThemeContext.jsx    # Contexto de tema claro/oscuro
+│   ├── hooks/                   # Custom hooks
+│   ├── utils/                   # Utilidades
+│   ├── constants/               # Constantes
 │   ├── App.jsx                  # Componente principal
-│   ├── App.css                  # Estilos generales de App
 │   ├── main.jsx                 # Punto de entrada
 │   └── index.css                # Estilos globales
-├── index.html                   # HTML principal
+├── supabase-migration.sql       # Script SQL para crear tablas en Supabase
+├── vercel.json                  # Configuración de Vercel
 ├── package.json                 # Dependencias del proyecto
 ├── vite.config.js               # Configuración de Vite
+├── tailwind.config.js          # Configuración de Tailwind
+├── MIGRACION_SUPABASE.md        # Guía de migración completa
 └── README.md                    # Este archivo
 ```
 
 ## 🔐 Autenticación
 
-El sistema utiliza autenticación basada en tokens que se comunica con el backend de WordPress:
+El sistema utiliza autenticación con Supabase Auth:
 
-- **Endpoint de Login:** `/wp-json/indrhi/v1/login`
-- **Endpoint de Validación:** `/wp-json/indrhi/v1/validate`
+- Los usuarios pueden iniciar sesión con su **email** o **username**
+- Las contraseñas se gestionan a través de Supabase Auth
+- Los tokens de sesión se almacenan en `localStorage`
 
-### Credenciales de Prueba
+### Crear Usuarios
 
-Utiliza cualquier usuario válido de WordPress:
-- **Usuario/Email:** Tu nombre de usuario o correo electrónico de WordPress
-- **Contraseña:** Tu contraseña de WordPress
+1. Crea el usuario en **Supabase Dashboard** → **Authentication** → **Users**
+2. Agrega el usuario a la tabla `sum_usuarios_departamentos` con su información
+
+Ver la guía completa en `MIGRACION_SUPABASE.md`
 
 ## 📦 Comandos Disponibles
 
@@ -88,32 +114,42 @@ npm run build        # Genera los archivos optimizados para producción
 npm run preview      # Previsualiza la versión de producción
 ```
 
-## 🌐 Despliegue en Producción
+## 🌐 Despliegue en Vercel
 
-1. **Construir la aplicación:**
-```bash
-npm run build
-```
+### Configuración Rápida
 
-2. **Los archivos generados estarán en la carpeta `dist/`**
+1. **Conectar repositorio:**
+   - Ve a [Vercel Dashboard](https://vercel.com/dashboard)
+   - Haz clic en **"Add New Project"**
+   - Selecciona tu repositorio de GitHub
 
-3. **Configurar el servidor web:**
-   - Copia el contenido de `dist/` a tu servidor
-   - Configura el servidor para redirigir todas las rutas a `index.html`
-   - Asegúrate de que el CORS esté correctamente configurado en WordPress
+2. **Configurar variables de entorno:**
+   - En **Settings** → **Environment Variables**, agrega:
+     - `VITE_SUPABASE_URL`
+     - `VITE_SUPABASE_ANON_KEY`
+     - `VITE_ENVIRONMENT` = `production`
+
+3. **Desplegar:**
+   - Haz clic en **"Deploy"**
+   - Espera a que termine el despliegue
+
+### Configuración Detallada
+
+Ver la guía completa en `MIGRACION_SUPABASE.md`
 
 ## 🔒 Seguridad
 
 - Los tokens se almacenan en `localStorage`
 - Las contraseñas nunca se almacenan en el frontend
-- Todas las peticiones al API utilizan HTTPS en producción
-- El plugin de WordPress maneja la validación de credenciales
+- Todas las peticiones utilizan HTTPS en producción
+- Row Level Security (RLS) configurado en Supabase
+- Políticas de seguridad implementadas
 
 ## 🎨 Personalización
 
 ### Colores
 
-Los colores principales se definen en `src/index.css`:
+Los colores principales se definen en `src/index.css` y `tailwind.config.js`:
 
 ```css
 :root {
@@ -139,19 +175,32 @@ La aplicación es completamente responsive y se adapta a:
 
 ## 🐛 Solución de Problemas
 
+### Error: "Missing Supabase environment variables"
+
+**Solución:** Verifica que el archivo `.env` exista y contenga las variables correctas.
+
 ### Error de CORS
 
-Si encuentras errores de CORS, verifica:
-1. Que el plugin "INDRHI Headless Auth" esté activo en WordPress
-2. Que la URL en `authService.js` sea correcta
-3. Que WordPress esté funcionando correctamente
+**Solución:** 
+1. Ve a **Settings** → **API** en Supabase
+2. Agrega tu dominio de Vercel a la lista de URLs permitidas
 
 ### El login no funciona
 
-1. Verifica que WordPress esté corriendo
-2. Comprueba las credenciales de usuario
+**Solución:**
+1. Verifica que el usuario exista en Supabase Auth
+2. Verifica que el usuario esté en `sum_usuarios_departamentos`
 3. Revisa la consola del navegador para errores
-4. Asegúrate de que el endpoint `/wp-json/indrhi/v1/login` esté accesible
+4. Asegúrate de usar el email correcto
+
+### Frontend no se actualiza después de cambios
+
+**Solución:**
+```bash
+# Limpiar caché de Vite
+rm -rf node_modules/.vite
+npm run dev
+```
 
 ## 📄 Licencia
 
@@ -159,5 +208,17 @@ Si encuentras errores de CORS, verifica:
 
 ## 👥 Soporte
 
-Para soporte técnico, contacta al departamento de TI de INDRHI.
+Para soporte técnico o preguntas sobre la migración:
+- Consulta `MIGRACION_SUPABASE.md` para la guía completa
+- Revisa la [documentación de Supabase](https://supabase.com/docs)
+- Revisa la [documentación de Vercel](https://vercel.com/docs)
 
+## 🔄 Migración desde WordPress
+
+Si estás migrando desde WordPress, consulta `MIGRACION_SUPABASE.md` para instrucciones detalladas.
+
+---
+
+**Versión:** 2.0.0  
+**Última actualización:** Noviembre 2025  
+**Estado:** ✅ Listo para producción con Supabase
