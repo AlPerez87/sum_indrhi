@@ -275,6 +275,11 @@ export const crmService = {
             id,
             codigo,
             departamento
+          ),
+          sum_roles:rol_id (
+            id,
+            nombre,
+            descripcion
           )
         `, { count: 'exact' })
         .order('id', { ascending: true })
@@ -317,6 +322,153 @@ export const crmService = {
       return {
         success: false,
         message: error.message || 'Error al actualizar departamento'
+      }
+    }
+  },
+
+  updateUsuarioRol: async (id, rolId) => {
+    try {
+      const { data, error } = await supabase
+        .from('sum_usuarios_departamentos')
+        .update({ rol_id: rolId })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return {
+        success: true,
+        message: 'Rol actualizado correctamente',
+        data
+      }
+    } catch (error) {
+      console.error('Error al actualizar rol:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al actualizar rol'
+      }
+    }
+  },
+
+  updateUsuarioNombreCompleto: async (id, nombreCompleto) => {
+    try {
+      const { data, error } = await supabase
+        .from('sum_usuarios_departamentos')
+        .update({ nombre_completo: nombreCompleto })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return {
+        success: true,
+        message: 'Nombre completo actualizado correctamente',
+        data
+      }
+    } catch (error) {
+      console.error('Error al actualizar nombre completo:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al actualizar nombre completo'
+      }
+    }
+  },
+
+  // ========== ROLES ==========
+  getRoles: async () => {
+    try {
+      const { data, error, count } = await supabase
+        .from('sum_roles')
+        .select('*', { count: 'exact' })
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: data || [],
+        total: count || 0
+      }
+    } catch (error) {
+      console.error('Error al obtener roles:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al obtener roles',
+        data: []
+      }
+    }
+  },
+
+  createRol: async (rol) => {
+    try {
+      const { data, error } = await supabase
+        .from('sum_roles')
+        .insert(rol)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return {
+        success: true,
+        message: 'Rol creado correctamente',
+        data
+      }
+    } catch (error) {
+      console.error('Error al crear rol:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al crear rol'
+      }
+    }
+  },
+
+  updateRol: async (id, rol) => {
+    try {
+      const { data, error } = await supabase
+        .from('sum_roles')
+        .update(rol)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return {
+        success: true,
+        message: 'Rol actualizado correctamente',
+        data
+      }
+    } catch (error) {
+      console.error('Error al actualizar rol:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al actualizar rol'
+      }
+    }
+  },
+
+  deleteRol: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('sum_roles')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      return {
+        success: true,
+        message: 'Rol eliminado correctamente'
+      }
+    } catch (error) {
+      console.error('Error al eliminar rol:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al eliminar rol'
       }
     }
   },
@@ -1176,10 +1328,27 @@ export const crmService = {
 
       if (fetchError) throw fetchError
 
-      // Obtener usuario actual para despachado_por
+      // Obtener usuario actual para despachado_por_id
       const userStr = localStorage.getItem('indrhi_user')
       const user = userStr ? JSON.parse(userStr) : null
-      const despachadoPor = user?.username || user?.email || 'Usuario desconocido'
+      const userId = user?.id || user?.user_id
+      
+      // Buscar el registro en sum_usuarios_departamentos
+      let despachadoPorId = null
+      let despachadoPorNombre = user?.username || user?.email || 'Usuario desconocido'
+      
+      if (userId) {
+        const { data: usuarioDepto } = await supabase
+          .from('sum_usuarios_departamentos')
+          .select('id, nombre_completo, username')
+          .eq('user_id', userId)
+          .single()
+        
+        if (usuarioDepto) {
+          despachadoPorId = usuarioDepto.id
+          despachadoPorNombre = usuarioDepto.nombre_completo || usuarioDepto.username || despachadoPorNombre
+        }
+      }
 
       // Insertar en solicitudes_despachadas
       const solicitudesDespachadas = solicitudes.map(s => ({
@@ -1187,7 +1356,8 @@ export const crmService = {
         fecha: s.fecha,
         departamento: s.departamento,
         articulos_cantidades: s.articulos_cantidades,
-        despachado_por: despachadoPor
+        despachado_por: despachadoPorNombre, // Mantener por compatibilidad
+        despachado_por_id: despachadoPorId // Nuevo campo con foreign key
       }))
 
       const { error: insertError } = await supabase
@@ -1242,16 +1412,34 @@ export const crmService = {
     try {
       const { data, error, count } = await supabase
         .from('sum_solicitudes_despachadas')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          sum_usuarios_departamentos:despachado_por_id (
+            id,
+            nombre_completo,
+            username,
+            email
+          )
+        `, { count: 'exact' })
         .order('id', { ascending: false })
 
       if (error) throw error
 
-      // Calcular total_articulos para cada solicitud
-      const solicitudesConTotal = (data || []).map(solicitud => ({
-        ...solicitud,
-        total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades)
-      }))
+      // Calcular total_articulos para cada solicitud y formatear despachado_por
+      const solicitudesConTotal = (data || []).map(solicitud => {
+        const usuarioDespacho = solicitud.sum_usuarios_departamentos
+        const despachadoPorNombre = usuarioDespacho?.nombre_completo || 
+                                   usuarioDespacho?.username || 
+                                   solicitud.despachado_por || 
+                                   'N/A'
+        
+        return {
+          ...solicitud,
+          total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades),
+          despachado_por: despachadoPorNombre, // Usar nombre_completo si está disponible
+          despachado_por_usuario: usuarioDespacho // Información completa del usuario
+        }
+      })
 
       return {
         success: true,
@@ -1272,7 +1460,20 @@ export const crmService = {
     try {
       const { data, error } = await supabase
         .from('sum_solicitudes_despachadas')
-        .select('*')
+        .select(`
+          *,
+          sum_usuarios_departamentos:despachado_por_id (
+            id,
+            nombre_completo,
+            username,
+            email,
+            sum_roles:rol_id (
+              id,
+              nombre,
+              descripcion
+            )
+          )
+        `)
         .eq('id', id)
         .single()
 
@@ -1283,6 +1484,16 @@ export const crmService = {
         data.articulos = JSON.parse(data.articulos_cantidades)
       } else {
         data.articulos = data.articulos_cantidades
+      }
+
+      // Formatear despachado_por con nombre_completo si está disponible
+      const usuarioDespacho = data.sum_usuarios_departamentos
+      if (usuarioDespacho) {
+        data.despachado_por = usuarioDespacho.nombre_completo || 
+                              usuarioDespacho.username || 
+                              data.despachado_por || 
+                              'N/A'
+        data.despachado_por_usuario = usuarioDespacho
       }
 
       return {
