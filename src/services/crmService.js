@@ -47,7 +47,7 @@ export const crmService = {
       let query = supabase
         .from('sum_articulos')
         .select('*', { count: 'exact' })
-        .order('id', { ascending: false })
+        .order('id', { ascending: true })
 
       if (search) {
         query = query.or(`codigo.ilike.%${search}%,descripcion.ilike.%${search}%`)
@@ -152,7 +152,7 @@ export const crmService = {
       let query = supabase
         .from('sum_departamentos')
         .select('*', { count: 'exact' })
-        .order('id', { ascending: false })
+        .order('id', { ascending: true })
 
       if (search) {
         query = query.or(`codigo.ilike.%${search}%,departamento.ilike.%${search}%`)
@@ -264,7 +264,7 @@ export const crmService = {
             departamento
           )
         `, { count: 'exact' })
-        .order('id', { ascending: false })
+        .order('id', { ascending: true })
 
       if (error) throw error
 
