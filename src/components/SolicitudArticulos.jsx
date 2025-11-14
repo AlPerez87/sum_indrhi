@@ -124,7 +124,8 @@ const SolicitudArticulos = () => {
       return
     }
 
-    const siguienteNumero = await crmService.getSiguienteNumeroSolicitud()
+    // Pasar el departamento_id para generar el número con la máscara SD{departamento_id}-{año}-{número}
+    const siguienteNumero = await crmService.getSiguienteNumeroSolicitud(userDepto.departamento_id)
     
     if (siguienteNumero.success) {
       setFormData({
@@ -135,6 +136,9 @@ const SolicitudArticulos = () => {
       })
       setArticulosSeleccionados([])
       setShowModal(true)
+    } else {
+      setError(siguienteNumero.message || 'Error al generar el número de solicitud')
+      setTimeout(() => setError(''), 5000)
     }
   }
 

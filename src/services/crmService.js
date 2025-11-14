@@ -581,12 +581,22 @@ export const crmService = {
     }
   },
 
-  getSiguienteNumeroSolicitud: async () => {
+  getSiguienteNumeroSolicitud: async (departamentoId) => {
     try {
-      // Obtener el último número de solicitud
+      if (!departamentoId) {
+        throw new Error('El ID del departamento es requerido')
+      }
+
+      const currentYear = new Date().getFullYear()
+      const prefix = `SD${departamentoId}-${currentYear}-`
+
+      // Buscar el último número de solicitud para este departamento y año
+      // Usar ilike para búsqueda case-insensitive y filtrar por departamento_id para mejor rendimiento
       const { data, error } = await supabase
         .from('sum_solicitudes')
         .select('numero_solicitud')
+        .eq('departamento_id', departamentoId)
+        .ilike('numero_solicitud', `${prefix}%`)
         .order('id', { ascending: false })
         .limit(1)
 
@@ -594,18 +604,24 @@ export const crmService = {
 
       let siguienteNumero = 1
       if (data && data.length > 0) {
-        const ultimoNumero = parseInt(data[0].numero_solicitud) || 0
-        siguienteNumero = ultimoNumero + 1
+        // Extraer el número secuencial del formato SD{departamento_id}-{año}-{número}
+        const ultimoNumeroStr = data[0].numero_solicitud
+        const match = ultimoNumeroStr.match(new RegExp(`^SD${departamentoId}-${currentYear}-(\\d+)$`))
+        
+        if (match && match[1]) {
+          siguienteNumero = parseInt(match[1]) + 1
+        }
       }
 
-      // Obtener fecha actual
+      // Formatear el número con 4 dígitos
+      const numeroFormateado = `${prefix}${String(siguienteNumero).padStart(4, '0')}`
       const fechaActual = new Date().toISOString().split('T')[0]
 
       return {
         success: true,
         data: { 
-          siguiente_numero: siguienteNumero.toString(),
-          numero_solicitud: siguienteNumero.toString(),
+          siguiente_numero: numeroFormateado,
+          numero_solicitud: numeroFormateado,
           fecha: fechaActual
         }
       }
