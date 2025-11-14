@@ -27,7 +27,7 @@ const SolicitudesAprobadas = () => {
     try {
       const [solicitudesResult, articulosResult] = await Promise.all([
         crmService.getSolicitudesAprobadas(),
-        crmService.getArticulos()
+        crmService.getArticulos(1, 10000, '') // Obtener todos los artículos
       ])
 
       if (solicitudesResult.success) {

@@ -24,7 +24,8 @@ const Departamentos = () => {
   const fetchDepartamentos = async () => {
     setLoading(true)
     setError('')
-    const result = await crmService.getDepartamentos()
+    // Obtener todos los departamentos (sin límite de paginación)
+    const result = await crmService.getDepartamentos(1, 10000, '')
     
     if (result.success) {
       setDepartamentos(result.data)

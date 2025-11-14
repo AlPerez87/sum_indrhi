@@ -47,12 +47,12 @@ const Panel = () => {
         deptosRes,
         usuariosRes
       ] = await Promise.all([
-        crmService.getArticulos(),
+        crmService.getArticulos(1, 10000, ''), // Obtener todos los artículos
         crmService.getSolicitudes(),
         crmService.getSolicitudesAprobadas(),
         crmService.getSolicitudesGestionadas(),
         crmService.getSolicitudesDespachadas(),
-        crmService.getDepartamentos(),
+        crmService.getDepartamentos(1, 10000, ''), // Obtener todos los departamentos
         crmService.getUsuariosDepartamentos()
       ])
 

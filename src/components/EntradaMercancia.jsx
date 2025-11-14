@@ -41,7 +41,7 @@ const EntradaMercancia = () => {
       // Cargar entradas, artículos y unidades
       const [entradasResult, articulosResult, unidadesResult] = await Promise.all([
         crmService.getEntradasMercancia(),
-        crmService.getArticulos(),
+        crmService.getArticulos(1, 10000, ''), // Obtener todos los artículos
         crmService.getUnidades()
       ])
 

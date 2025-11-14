@@ -53,7 +53,8 @@ const Articulos = () => {
   const fetchArticulos = async () => {
     setLoading(true)
     setError('')
-    const result = await crmService.getArticulos()
+    // Obtener todos los artículos (sin límite de paginación)
+    const result = await crmService.getArticulos(1, 10000, '')
     
     if (result.success) {
       setArticulos(result.data)

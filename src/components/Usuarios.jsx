@@ -27,7 +27,7 @@ const Usuarios = () => {
     
     const [usuariosResult, deptosResult] = await Promise.all([
       crmService.getUsuariosDepartamentos(),
-      crmService.getDepartamentos()
+      crmService.getDepartamentos(1, 10000, '') // Obtener todos los departamentos
     ])
     
     if (usuariosResult.success) {
