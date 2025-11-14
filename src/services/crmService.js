@@ -549,11 +549,27 @@ export const crmService = {
 
       if (error) throw error
 
-      // Calcular total_articulos para cada solicitud
+      // Obtener números de solicitudes ya enviadas para marcar como enviadas
+      const numerosSolicitudes = (data || []).map(s => s.numero_solicitud).filter(Boolean)
+      let solicitudesEnviadas = new Set()
+      
+      if (numerosSolicitudes.length > 0) {
+        const { data: enviadas } = await supabase
+          .from('sum_autorizar_solicitudes')
+          .select('numero_solicitud')
+          .in('numero_solicitud', numerosSolicitudes)
+        
+        if (enviadas) {
+          solicitudesEnviadas = new Set(enviadas.map(e => e.numero_solicitud))
+        }
+      }
+
+      // Calcular total_articulos para cada solicitud y marcar si está enviada
       const solicitudesConTotal = (data || []).map(solicitud => ({
         ...solicitud,
         total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades),
-        departamento: solicitud.sum_departamentos?.departamento || solicitud.departamento
+        departamento: solicitud.sum_departamentos?.departamento || solicitud.departamento,
+        enviada: solicitudesEnviadas.has(solicitud.numero_solicitud) ? 1 : (solicitud.enviada || 0)
       }))
 
       return {
@@ -784,11 +800,28 @@ export const crmService = {
       if (solicitudError) throw solicitudError
 
       // El numero_solicitud ahora es un string con formato SD{departamento_id}-{año}-{número}
-      // Mantener como string (la tabla debe ser VARCHAR, no INTEGER)
       const numeroSolicitud = String(solicitud.numero_solicitud || '')
 
       if (!numeroSolicitud) {
         throw new Error('El número de solicitud es requerido')
+      }
+
+      // Verificar si la solicitud ya fue enviada (existe en sum_autorizar_solicitudes)
+      const { data: existeSolicitud, error: checkError } = await supabase
+        .from('sum_autorizar_solicitudes')
+        .select('id')
+        .eq('numero_solicitud', numeroSolicitud)
+        .single()
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw checkError
+      }
+
+      if (existeSolicitud) {
+        return {
+          success: false,
+          message: 'Esta solicitud ya fue enviada anteriormente'
+        }
       }
 
       // Mover a tabla de autorizar_solicitudes
@@ -801,7 +834,23 @@ export const crmService = {
           articulos_cantidades: solicitud.articulos_cantidades
         }])
 
-      if (insertError) throw insertError
+      if (insertError) {
+        // Si es error de duplicado, informar claramente
+        if (insertError.code === '23505') {
+          return {
+            success: false,
+            message: 'Esta solicitud ya fue enviada anteriormente'
+          }
+        }
+        throw insertError
+      }
+
+      // Actualizar el campo enviada en sum_solicitudes (si existe) o agregar marca
+      // Intentar actualizar el campo enviada, si no existe, no es crítico
+      await supabase
+        .from('sum_solicitudes')
+        .update({ enviada: 1 })
+        .eq('id', id)
 
       return {
         success: true,

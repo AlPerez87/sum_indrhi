@@ -312,6 +312,13 @@ const SolicitudArticulos = () => {
 
   // Enviar solicitud a autorización
   const handleEnviarSolicitud = async (solicitud) => {
+    // Verificar si ya está enviada
+    if (solicitud.enviada === 1) {
+      setError('Esta solicitud ya fue enviada anteriormente')
+      setTimeout(() => setError(''), 3000)
+      return
+    }
+
     if (!confirm(`¿Está seguro de enviar la solicitud ${solicitud.numero_solicitud} a autorización?`)) {
       return
     }
@@ -320,10 +327,11 @@ const SolicitudArticulos = () => {
     if (result.success) {
       setSuccessMessage('Solicitud enviada a autorización correctamente')
       setTimeout(() => setSuccessMessage(''), 3000)
-      loadData()
+      // Recargar datos para actualizar el estado de los botones
+      await loadData()
     } else {
       setError(result.message || 'Error al enviar la solicitud')
-      setTimeout(() => setError(''), 3000)
+      setTimeout(() => setError(''), 5000)
     }
   }
 
