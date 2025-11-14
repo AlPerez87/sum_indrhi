@@ -504,7 +504,24 @@ export const crmService = {
   getSolicitudes: async () => {
     try {
       const userId = getCurrentUserId()
+      const userStr = localStorage.getItem('indrhi_user')
+      let user = null
       
+      if (userStr) {
+        try {
+          user = JSON.parse(userStr)
+        } catch (e) {
+          console.error('Error al parsear usuario:', e)
+        }
+      }
+
+      // Verificar si el usuario es Administrador
+      const isAdmin = user && (
+        user.roles?.some(r => r.toLowerCase() === 'administrador') ||
+        user.perfil?.toLowerCase() === 'administrador' ||
+        user.rol?.toLowerCase() === 'administrador'
+      )
+
       let query = supabase
         .from('sum_solicitudes')
         .select(`
@@ -517,7 +534,17 @@ export const crmService = {
         `, { count: 'exact' })
         .order('id', { ascending: false })
 
-      // Los usuarios solo ven sus propias solicitudes (RLS debería manejar esto)
+      // Si no es Administrador, filtrar por usuario_id o departamento_id
+      if (!isAdmin && userId) {
+        // Obtener el departamento_id del usuario si está disponible
+        if (user?.departamento_id) {
+          query = query.eq('departamento_id', user.departamento_id)
+        } else {
+          // Si no tiene departamento_id, filtrar por usuario_id
+          query = query.eq('usuario_id', userId)
+        }
+      }
+
       const { data, error, count } = await query
 
       if (error) throw error
@@ -756,11 +783,19 @@ export const crmService = {
 
       if (solicitudError) throw solicitudError
 
+      // El numero_solicitud ahora es un string con formato SD{departamento_id}-{año}-{número}
+      // Mantener como string (la tabla debe ser VARCHAR, no INTEGER)
+      const numeroSolicitud = String(solicitud.numero_solicitud || '')
+
+      if (!numeroSolicitud) {
+        throw new Error('El número de solicitud es requerido')
+      }
+
       // Mover a tabla de autorizar_solicitudes
       const { error: insertError } = await supabase
         .from('sum_autorizar_solicitudes')
         .insert([{
-          numero_solicitud: parseInt(solicitud.numero_solicitud),
+          numero_solicitud: numeroSolicitud,
           fecha: solicitud.fecha,
           departamento: solicitud.departamento,
           articulos_cantidades: solicitud.articulos_cantidades
