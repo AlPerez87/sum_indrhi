@@ -16,16 +16,16 @@ export const crmService = {
   // ========== ARTÍCULOS ==========
   getUnidades: async () => {
     try {
-      // Las unidades son constantes según el sistema
+      // Las unidades son constantes según el sistema (formato para selectores)
       const unidades = [
-        { id: 1, nombre: 'UNIDAD' },
-        { id: 2, nombre: 'RESMA' },
-        { id: 3, nombre: 'BLOCKS O TALONARIO' },
-        { id: 4, nombre: 'PAQUETE' },
-        { id: 5, nombre: 'GALON' },
-        { id: 6, nombre: 'YARDA' },
-        { id: 7, nombre: 'LIBRA' },
-        { id: 8, nombre: 'CAJA' }
+        { value: 'UNIDAD', label: 'Unidad' },
+        { value: 'RESMA', label: 'Resma' },
+        { value: 'BLOCKS O TALONARIO', label: 'Blocks o Talonario' },
+        { value: 'PAQUETE', label: 'Paquete' },
+        { value: 'GALON', label: 'Galón' },
+        { value: 'YARDA', label: 'Yarda' },
+        { value: 'LIBRA', label: 'Libra' },
+        { value: 'CAJA', label: 'Caja' }
       ]
       
       return {
