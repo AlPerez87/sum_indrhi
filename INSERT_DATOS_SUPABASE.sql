@@ -520,11 +520,10 @@ SELECT setval('sum_articulos_id_seq', 242, true);
 -- ✅ Usuarios ya creados en Supabase Auth
 
 INSERT INTO sum_usuarios_departamentos (user_id, username, email, rol, departamento_id) VALUES
-('360aad03-5995-4030-a795-1ad54ebd935f', 'App', 'ing.aperezp@gmail.com', 'Administrator', 81),
-('9ce5979b-caf9-415f-b581-fda7a888aad3', 'TIC', 'tic@indrhi.gob.do', 'Administrator', 81),
-('90de6ebe-ccb2-4191-8c11-d9242b1bdc34', 'emedina', 'emedina@indrhi.gob.do', 'Administrator', 198),
-('357af1ab-42cd-4055-adfc-ebccf36eca17', 'administrativo', 'administrativo@indrhi.gob.do', 'Departamento_administrativo', 43);
+('f4f8340b-b9f7-4674-8466-52b5819c57dd', 'App', 'ing.aperezp@gmail.com', 'Administrator', 81),
+('9c1572ad-1e73-4523-8007-17fa8d7ad6c6', 'TIC', 'tic@indrhi.gob.do', 'Administrator', 81),
+('77ad0f05-d01b-4008-a8d0-70e5d216e4da', 'emedina', 'emedina@indrhi.gob.do', 'Administrator', 198);
 
--- Ajustar la secuencia después de insertar
-SELECT setval('sum_usuarios_departamentos_id_seq', 4, true);
+-- Ajustar la secuencia después de insertar (3 usuarios)
+SELECT setval('sum_usuarios_departamentos_id_seq', 3, true);
 

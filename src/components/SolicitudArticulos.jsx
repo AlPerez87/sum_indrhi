@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, Eye, X, Trash2, AlertCircle, Package, FileText, Edit, Send, Check } from 'lucide-react'
 import { crmService } from '../services/crmService'
+import { authService } from '../services/authService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
 import SearchableSelect from './SearchableSelect'
@@ -39,32 +40,33 @@ const SolicitudArticulos = () => {
   }, [])
 
   const loadUserData = () => {
-    const token = localStorage.getItem('indrhi_token')
-    if (token) {
-      try {
-        const decoded = JSON.parse(atob(token))
-        setCurrentUser(decoded)
-      } catch (error) {
-        console.error('Error al decodificar token:', error)
-      }
+    const user = authService.getCurrentUser()
+    if (user) {
+      setCurrentUser(user)
     }
   }
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [solicitudesResult, articulosResult] = await Promise.all([
-        crmService.getSolicitudes(),
-        crmService.getArticulos()
-      ])
-
+      // Obtener todas las solicitudes
+      const solicitudesResult = await crmService.getSolicitudes()
+      
       if (solicitudesResult.success) {
         setSolicitudes(solicitudesResult.data.filter(s => s.id && s.id > 0))
       }
 
+      // Obtener todos los artículos (sin paginación para el selector)
+      const articulosResult = await crmService.getArticulos(1, 1000, '')
+      
       if (articulosResult.success) {
-        const articulosConCodigo = articulosResult.data.filter(art => art.articulo)
-        setArticulos(articulosConCodigo)
+        // Mapear artículos al formato esperado por el componente
+        const articulosMapeados = articulosResult.data.map(art => ({
+          ...art,
+          articulo: art.codigo, // Para compatibilidad con el selector
+          nombre: art.descripcion || art.codigo
+        }))
+        setArticulos(articulosMapeados)
       }
     } catch (error) {
       console.error('Error al cargar datos:', error)
@@ -82,19 +84,33 @@ const SolicitudArticulos = () => {
       const result = await crmService.getUsuariosDepartamentos()
       
       if (result.success) {
-        // Buscar usuario por user_id (comparación flexible)
+        // Buscar usuario por email o user_id
         const usuario = result.data.find(u => 
-          u.user_id === currentUser.user_id || 
+          u.email === currentUser.email ||
           u.user_id === currentUser.id ||
-          String(u.user_id) === String(currentUser.user_id) ||
           String(u.user_id) === String(currentUser.id)
         )
         
-        return usuario
+        if (usuario) {
+          return {
+            ...usuario,
+            departamento_id: usuario.departamento_id || currentUser.departamento_id,
+            departamento_nombre: usuario.sum_departamentos?.departamento || currentUser.departamento
+          }
+        }
       }
     } catch (error) {
       console.error('Error al obtener departamento del usuario:', error)
     }
+    
+    // Si no se encuentra en la lista, usar los datos del usuario actual
+    if (currentUser.departamento_id) {
+      return {
+        departamento_id: currentUser.departamento_id,
+        departamento_nombre: currentUser.departamento
+      }
+    }
+    
     return null
   }
 
@@ -169,7 +185,9 @@ const SolicitudArticulos = () => {
 
     try {
       const solicitud = {
-        usuario_id: currentUser.user_id || currentUser.id,
+        numero_solicitud: formData.numero_solicitud,
+        fecha: formData.fecha || new Date().toISOString().split('T')[0],
+        departamento_id: formData.departamento_id,
         articulos: articulosSeleccionados.map(art => ({
           articulo: art.nombre,
           codigo: art.codigo,

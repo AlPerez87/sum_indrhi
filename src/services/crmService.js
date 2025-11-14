@@ -565,9 +565,16 @@ export const crmService = {
         siguienteNumero = ultimoNumero + 1
       }
 
+      // Obtener fecha actual
+      const fechaActual = new Date().toISOString().split('T')[0]
+
       return {
         success: true,
-        data: { siguiente_numero: siguienteNumero.toString() }
+        data: { 
+          siguiente_numero: siguienteNumero.toString(),
+          numero_solicitud: siguienteNumero.toString(),
+          fecha: fechaActual
+        }
       }
     } catch (error) {
       console.error('Error al obtener siguiente número:', error)
