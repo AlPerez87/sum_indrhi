@@ -66,19 +66,25 @@ const EntradaMercancia = () => {
       if (articulosResult.success) {
         // Filtrar artículos sin código válido
         const articulosValidos = articulosResult.data.filter(art => {
-          if (!art.articulo) {
+          if (!art.codigo) {
             console.warn('⚠️ Artículo sin código:', art)
             return false
           }
           return true
         })
         
-        console.log('Artículos cargados:', articulosValidos.length, 'de', articulosResult.data.length)
-        if (articulosValidos.length !== articulosResult.data.length) {
-          console.warn('⚠️ Se filtraron', articulosResult.data.length - articulosValidos.length, 'artículos sin código')
+        // Mapear artículos para compatibilidad
+        const articulosMapeados = articulosValidos.map(art => ({
+          ...art,
+          articulo: art.codigo // Para compatibilidad con el selector
+        }))
+        
+        console.log('Artículos cargados:', articulosMapeados.length, 'de', articulosResult.data.length)
+        if (articulosMapeados.length !== articulosResult.data.length) {
+          console.warn('⚠️ Se filtraron', articulosResult.data.length - articulosMapeados.length, 'artículos sin código')
         }
         
-        setArticulos(articulosValidos)
+        setArticulos(articulosMapeados)
       }
 
       if (unidadesResult.success) {
@@ -149,13 +155,13 @@ const EntradaMercancia = () => {
       return
     }
 
-    const articuloInfo = articulos.find(a => a.articulo === articuloActual.articulo)
+    const articuloInfo = articulos.find(a => a.codigo === articuloActual.articulo || a.articulo === articuloActual.articulo)
     
     setArticulosSeleccionados([
       ...articulosSeleccionados,
       {
-        codigo: articuloActual.articulo,
-        nombre: articuloInfo?.descripcion || articuloInfo?.articulo || articuloActual.articulo,
+        codigo: articuloInfo?.codigo || articuloActual.articulo,
+        nombre: articuloInfo?.descripcion || articuloInfo?.codigo || articuloActual.articulo,
         cantidad: parseFloat(articuloActual.cantidad),
         unidad: articuloActual.unidad
       }
@@ -206,27 +212,43 @@ const EntradaMercancia = () => {
 
     try {
       const entrada = {
+        numero_entrada: formData.numero_entrada,
         numero_orden: formData.numero_orden,
+        fecha: formData.fecha,
         suplidor: formData.suplidor,
-        articulos: articulosSeleccionados.map(art => ({
-          articulo: art.nombre,
+        articulos_cantidades_unidades: JSON.stringify(articulosSeleccionados.map(art => ({
+          codigo: art.codigo,
+          nombre: art.nombre,
           cantidad: art.cantidad,
           unidad: art.unidad
-        }))
+        })))
       }
 
       const result = await crmService.createEntradaMercancia(entrada)
 
       if (result.success) {
         setShowModal(false)
-        loadData()
+        setFormData({
+          numero_entrada: '',
+          numero_orden: '',
+          fecha: '',
+          suplidor: ''
+        })
+        setArticulosSeleccionados([])
+        setArticuloActual({
+          articulo: '',
+          cantidad: '',
+          unidad: 'UNIDAD'
+        })
+        setError('')
+        await loadData()
         alert('Entrada de mercancía creada correctamente')
       } else {
         setError(result.message || 'Error al crear la entrada')
       }
     } catch (error) {
-      setError('Error al guardar la entrada')
-      console.error('Error:', error)
+      setError('Error al guardar la entrada: ' + (error.message || 'Error desconocido'))
+      console.error('Error completo:', error)
     } finally {
       setSaving(false)
     }
@@ -488,7 +510,7 @@ const EntradaMercancia = () => {
                     <SearchableSelect
                       options={articulos.map(art => ({
                         value: art.articulo,
-                        label: art.descripcion || art.articulo // Descripción o código como fallback
+                        label: art.descripcion || art.codigo // Descripción o código como fallback
                       }))}
                       value={articuloActual.articulo}
                       onChange={(value) => {

@@ -414,10 +414,17 @@ export const crmService = {
       }
 
       const numeroFormateado = `INDRHI-EM-${currentYear}-${String(siguienteNumero).padStart(4, '0')}`
+      const numeroOrden = `INDRHI-DAF-CD-${currentYear}-${String(siguienteNumero).padStart(4, '0')}`
+      const fechaActual = new Date().toISOString().split('T')[0]
 
       return {
         success: true,
-        data: { siguiente_numero: numeroFormateado }
+        data: { 
+          siguiente_numero: numeroFormateado,
+          numero_entrada: numeroFormateado,
+          numero_orden: numeroOrden,
+          fecha: fechaActual
+        }
       }
     } catch (error) {
       console.error('Error al obtener siguiente número:', error)

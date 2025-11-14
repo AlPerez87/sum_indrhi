@@ -16,7 +16,7 @@ const Articulos = () => {
   const [successMessage, setSuccessMessage] = useState('')
   const [showBajoMinimo, setShowBajoMinimo] = useState(false)
   const [formData, setFormData] = useState({
-    articulo: '',
+    codigo: '',
     descripcion: '',
     existencia: '',
     cantidad_minima: '',
@@ -68,8 +68,8 @@ const Articulos = () => {
     e.preventDefault()
     
     // Validar campos obligatorios
-    if (!formData.articulo || !formData.descripcion || !formData.existencia || !formData.unidad) {
-      setError('Los campos Artículo, Descripción, Existencia y Unidad son obligatorios')
+    if (!formData.codigo || !formData.descripcion || !formData.existencia || !formData.unidad) {
+      setError('Los campos Código, Descripción, Existencia y Unidad son obligatorios')
       setTimeout(() => setError(''), 3000)
       return
     }
@@ -93,7 +93,7 @@ const Articulos = () => {
 
   const handleEdit = (articulo) => {
     setFormData({
-      articulo: articulo.articulo,
+      codigo: articulo.codigo,
       descripcion: articulo.descripcion || '',
       existencia: articulo.existencia || '',
       cantidad_minima: articulo.cantidad_minima || '',
@@ -104,8 +104,8 @@ const Articulos = () => {
     setShowForm(true)
   }
 
-  const handleDelete = async (id, nombre) => {
-    if (window.confirm(`¿Estás seguro de eliminar el artículo "${nombre}"?`)) {
+  const handleDelete = async (id, codigo) => {
+    if (window.confirm(`¿Estás seguro de eliminar el artículo "${codigo}"?`)) {
       const result = await crmService.deleteArticulo(id)
       
       if (result.success) {
@@ -121,12 +121,12 @@ const Articulos = () => {
 
   const resetForm = () => {
     setFormData({
-      articulo: '',
+      codigo: '',
       descripcion: '',
       existencia: '',
       cantidad_minima: '',
       valor: '',
-      unidad: ''
+      unidad: 'UNIDAD'
     })
     setEditingId(null)
   }
@@ -264,12 +264,12 @@ const Articulos = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="label-field">
-                      Artículo <span className="text-red-500">*</span>
+                      Código <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={formData.articulo}
-                      onChange={(e) => setFormData({...formData, articulo: e.target.value})}
+                      value={formData.codigo}
+                      onChange={(e) => setFormData({...formData, codigo: e.target.value})}
                       className="input-field"
                       required
                     />
@@ -402,7 +402,7 @@ const Articulos = () => {
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Artículo
+                  Código
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Descripción
@@ -441,7 +441,7 @@ const Articulos = () => {
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {articulo.articulo}
+                      {articulo.codigo}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate">
                       {articulo.descripcion || '-'}
@@ -477,7 +477,7 @@ const Articulos = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(articulo.id, articulo.articulo)}
+                          onClick={() => handleDelete(articulo.id, articulo.codigo)}
                           className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Eliminar"
                         >

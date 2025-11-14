@@ -275,7 +275,7 @@ const Usuarios = () => {
                           </button>
                         </div>
                       ) : (
-                        usuario.departamento_nombre || (
+                        usuario.sum_departamentos?.departamento || (
                           <span className="text-gray-400 dark:text-gray-500 italic">Sin asignar</span>
                         )
                       )}
