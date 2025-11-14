@@ -12,6 +12,19 @@ const getCurrentUserId = () => {
   }
 }
 
+// Función auxiliar para calcular total_articulos desde articulos_cantidades
+const calcularTotalArticulos = (articulosCantidades) => {
+  if (!articulosCantidades) return 0
+  try {
+    const articulos = typeof articulosCantidades === 'string' 
+      ? JSON.parse(articulosCantidades) 
+      : articulosCantidades
+    return Array.isArray(articulos) ? articulos.length : 0
+  } catch {
+    return 0
+  }
+}
+
 export const crmService = {
   // ========== ARTÍCULOS ==========
   getUnidades: async () => {
@@ -352,9 +365,15 @@ export const crmService = {
 
       if (error) throw error
 
+      // Calcular total_articulos para cada entrada desde articulos_cantidades_unidades
+      const entradasConTotal = (data || []).map(entrada => ({
+        ...entrada,
+        total_articulos: calcularTotalArticulos(entrada.articulos_cantidades_unidades)
+      }))
+
       return {
         success: true,
-        data: data || [],
+        data: entradasConTotal,
         total: count || 0
       }
     } catch (error) {
@@ -503,9 +522,16 @@ export const crmService = {
 
       if (error) throw error
 
+      // Calcular total_articulos para cada solicitud
+      const solicitudesConTotal = (data || []).map(solicitud => ({
+        ...solicitud,
+        total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades),
+        departamento: solicitud.sum_departamentos?.departamento || solicitud.departamento
+      }))
+
       return {
         success: true,
-        data: data || [],
+        data: solicitudesConTotal,
         total: count || 0
       }
     } catch (error) {
@@ -749,9 +775,15 @@ export const crmService = {
 
       if (error) throw error
 
+      // Calcular total_articulos para cada solicitud
+      const solicitudesConTotal = (data || []).map(solicitud => ({
+        ...solicitud,
+        total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades)
+      }))
+
       return {
         success: true,
-        data: data || [],
+        data: solicitudesConTotal,
         total: count || 0
       }
     } catch (error) {
@@ -873,9 +905,15 @@ export const crmService = {
 
       if (error) throw error
 
+      // Calcular total_articulos para cada solicitud
+      const solicitudesConTotal = (data || []).map(solicitud => ({
+        ...solicitud,
+        total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades)
+      }))
+
       return {
         success: true,
-        data: data || [],
+        data: solicitudesConTotal,
         total: count || 0
       }
     } catch (error) {
@@ -975,9 +1013,15 @@ export const crmService = {
 
       if (error) throw error
 
+      // Calcular total_articulos para cada solicitud
+      const solicitudesConTotal = (data || []).map(solicitud => ({
+        ...solicitud,
+        total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades)
+      }))
+
       return {
         success: true,
-        data: data || [],
+        data: solicitudesConTotal,
         total: count || 0
       }
     } catch (error) {
@@ -1103,9 +1147,15 @@ export const crmService = {
 
       if (error) throw error
 
+      // Calcular total_articulos para cada solicitud
+      const solicitudesConTotal = (data || []).map(solicitud => ({
+        ...solicitud,
+        total_articulos: calcularTotalArticulos(solicitud.articulos_cantidades)
+      }))
+
       return {
         success: true,
-        data: data || [],
+        data: solicitudesConTotal,
         total: count || 0
       }
     } catch (error) {

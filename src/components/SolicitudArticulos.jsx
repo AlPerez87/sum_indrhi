@@ -49,15 +49,15 @@ const SolicitudArticulos = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Obtener todas las solicitudes
-      const solicitudesResult = await crmService.getSolicitudes()
+      // Cargar solicitudes y artículos en paralelo para mejor rendimiento
+      const [solicitudesResult, articulosResult] = await Promise.all([
+        crmService.getSolicitudes(),
+        crmService.getArticulos(1, 10000, '')
+      ])
       
       if (solicitudesResult.success) {
         setSolicitudes(solicitudesResult.data.filter(s => s.id && s.id > 0))
       }
-
-      // Obtener todos los artículos (sin paginación para el selector)
-      const articulosResult = await crmService.getArticulos(1, 1000, '')
       
       if (articulosResult.success) {
         // Mapear artículos al formato esperado por el componente
