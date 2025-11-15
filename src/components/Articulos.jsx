@@ -85,9 +85,19 @@ const Articulos = () => {
       return
     }
 
+    // Preparar datos con tipos correctos para la base de datos
+    const datosParaEnviar = {
+      codigo: formData.codigo.trim(),
+      descripcion: formData.descripcion.trim() || null,
+      existencia: parseInt(formData.existencia) || 0,
+      cantidad_minima: formData.cantidad_minima ? parseInt(formData.cantidad_minima) || 0 : 0,
+      valor: formData.valor ? parseFloat(formData.valor) || 0 : 0,
+      unidad: formData.unidad.trim()
+    }
+
     const result = editingId
-      ? await crmService.updateArticulo(editingId, formData)
-      : await crmService.createArticulo(formData)
+      ? await crmService.updateArticulo(editingId, datosParaEnviar)
+      : await crmService.createArticulo(datosParaEnviar)
 
     if (result.success) {
       setSuccessMessage(result.message)

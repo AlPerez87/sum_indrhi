@@ -114,6 +114,15 @@ export const crmService = {
 
   updateArticulo: async (id, articulo) => {
     try {
+      // Validar que la unidad sea válida
+      const unidadesValidas = ['UNIDAD', 'RESMA', 'BLOCKS O TALONARIO', 'PAQUETE', 'GALON', 'YARDA', 'LIBRA', 'CAJA']
+      if (articulo.unidad && !unidadesValidas.includes(articulo.unidad)) {
+        return {
+          success: false,
+          message: `La unidad "${articulo.unidad}" no es válida. Unidades permitidas: ${unidadesValidas.join(', ')}`
+        }
+      }
+
       const { data, error } = await supabase
         .from('sum_articulos')
         .update(articulo)
@@ -121,7 +130,22 @@ export const crmService = {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        // Manejar errores específicos
+        if (error.code === '23505') {
+          return {
+            success: false,
+            message: 'Ya existe un artículo con este código'
+          }
+        }
+        if (error.code === '23514') {
+          return {
+            success: false,
+            message: 'El valor de la unidad no es válido. Unidades permitidas: UNIDAD, RESMA, BLOCKS O TALONARIO, PAQUETE, GALON, YARDA, LIBRA, CAJA'
+          }
+        }
+        throw error
+      }
 
       return {
         success: true,
