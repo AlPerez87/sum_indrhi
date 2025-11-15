@@ -311,13 +311,6 @@ const Panel = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    {solicitud.tipo === 'pendiente' ? 'Pendiente' :
-                     solicitud.tipo === 'aprobada' ? 'Aprobada' :
-                     solicitud.tipo === 'gestionada' ? 'En Gestión' :
-                     solicitud.tipo === 'despachada' ? 'Despachada' :
-                     solicitud.estado === 'enviado' ? 'Enviada' : 'Borrador'}
-                  </p>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     solicitud.tipo === 'despachada' 
                       ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
