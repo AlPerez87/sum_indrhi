@@ -693,12 +693,12 @@ export const crmService = {
         }
       }
 
-      // Verificar si el usuario es Administrador
-      const isAdmin = user && (
-        user.roles?.some(r => r.toLowerCase() === 'administrador') ||
-        user.perfil?.toLowerCase() === 'administrador' ||
-        user.rol?.toLowerCase() === 'administrador'
-      )
+      // Verificar si el usuario puede ver todas las solicitudes
+      const userRole = user?.roles?.[0] || user?.perfil || user?.rol || ''
+      const roleLower = userRole.toLowerCase()
+      const canViewAll = roleLower === 'administrador' || 
+                         roleLower === 'encargado de suministro' || 
+                         roleLower === 'suministro'
 
       let query = supabase
         .from('sum_solicitudes')
@@ -712,8 +712,8 @@ export const crmService = {
         `, { count: 'exact' })
         .order('id', { ascending: false })
 
-      // Si no es Administrador, filtrar por usuario_id o departamento_id
-      if (!isAdmin && userId) {
+      // Si no puede ver todas las solicitudes, filtrar por usuario_id o departamento_id
+      if (!canViewAll && userId) {
         // Obtener el departamento_id del usuario si está disponible
         if (user?.departamento_id) {
           query = query.eq('departamento_id', user.departamento_id)

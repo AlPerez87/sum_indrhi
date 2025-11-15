@@ -29,6 +29,16 @@ const Panel = () => {
   const [recentActivity, setRecentActivity] = useState([])
   const user = authService.getCurrentUser()
 
+  // Verificar si el usuario puede ver todas las solicitudes (Encargado de Suministro o Suministro)
+  const canViewAllSolicitudes = () => {
+    if (!user) return false
+    const userRole = user.roles?.[0] || user.perfil || user.rol || ''
+    const roleLower = userRole.toLowerCase()
+    return roleLower === 'administrador' || 
+           roleLower === 'encargado de suministro' || 
+           roleLower === 'suministro'
+  }
+
   useEffect(() => {
     loadDashboardData()
   }, [])
@@ -37,6 +47,8 @@ const Panel = () => {
     setLoading(true)
     
     try {
+      const canViewAll = canViewAllSolicitudes()
+      
       // Cargar estadísticas en paralelo
       const [
         articulosRes,
@@ -56,33 +68,93 @@ const Panel = () => {
         crmService.getUsuariosDepartamentos()
       ])
 
-      // Calcular artículos con bajo stock (menos de 10 unidades)
+      // Calcular artículos con bajo stock (existencia < cantidad_minima)
       const articulosBajo = articulosRes.success 
-        ? articulosRes.data.filter(a => a.existencia < 10).length 
+        ? articulosRes.data.filter(a => {
+            const existencia = parseFloat(a.existencia || 0)
+            const minimo = parseFloat(a.cantidad_minima || 0)
+            return minimo > 0 && existencia < minimo
+          }).length 
         : 0
 
       // Filtrar solicitudes pendientes
+      // getSolicitudes ya filtra según el rol del usuario
       const pendientes = solicitudesRes.success
-        ? solicitudesRes.data.filter(s => s.estado === 'borrador' || s.estado === 'pendiente').length
+        ? solicitudesRes.data.filter(s => s.estado === 'borrador' || s.estado === 'pendiente' || !s.enviada || s.enviada === 0).length
+        : 0
+
+      // Para roles Encargado de Suministro y Suministro, usar todas las solicitudes
+      const solicitudesAprobadas = canViewAll 
+        ? (approbadasRes.success ? approbadasRes.data.length : 0)
+        : (solicitudesRes.success ? solicitudesRes.data.filter(s => s.estado === 'aprobada').length : 0)
+      
+      const solicitudesGestionadas = canViewAll
+        ? (gestionadasRes.success ? gestionadasRes.data.length : 0)
+        : 0
+      
+      const solicitudesDespachadas = canViewAll
+        ? (despachadasRes.success ? despachadasRes.data.length : 0)
         : 0
 
       setStats({
         totalArticulos: articulosRes.success ? articulosRes.data.length : 0,
         articulosBajoStock: articulosBajo,
         solicitudesPendientes: pendientes,
-        solicitudesAprobadas: approbadasRes.success ? approbadasRes.data.length : 0,
-        solicitudesGestionadas: gestionadasRes.success ? gestionadasRes.data.length : 0,
-        solicitudesDespachadas: despachadasRes.success ? despachadasRes.data.length : 0,
+        solicitudesAprobadas: solicitudesAprobadas,
+        solicitudesGestionadas: solicitudesGestionadas,
+        solicitudesDespachadas: solicitudesDespachadas,
         totalDepartamentos: deptosRes.success ? deptosRes.data.length : 0,
         totalUsuarios: usuariosRes.success ? usuariosRes.data.length : 0
       })
 
-      // Actividad reciente (últimas 5 solicitudes)
-      if (solicitudesRes.success) {
-        const recent = solicitudesRes.data
+      // Actividad reciente
+      // Para Encargado de Suministro y Suministro: combinar todas las solicitudes de todas las tablas
+      // Para otros usuarios: solo solicitudes de su departamento
+      if (canViewAll) {
+        // Combinar todas las solicitudes de todas las tablas
+        const allSolicitudes = []
+        
+        if (solicitudesRes.success) {
+          allSolicitudes.push(...solicitudesRes.data.map(s => ({
+            ...s,
+            tipo: 'pendiente'
+          })))
+        }
+        if (approbadasRes.success) {
+          allSolicitudes.push(...approbadasRes.data.map(s => ({
+            ...s,
+            tipo: 'aprobada',
+            estado: 'aprobada'
+          })))
+        }
+        if (gestionadasRes.success) {
+          allSolicitudes.push(...gestionadasRes.data.map(s => ({
+            ...s,
+            tipo: 'gestionada',
+            estado: 'gestionada'
+          })))
+        }
+        if (despachadasRes.success) {
+          allSolicitudes.push(...despachadasRes.data.map(s => ({
+            ...s,
+            tipo: 'despachada',
+            estado: 'despachada'
+          })))
+        }
+        
+        // Ordenar por fecha y tomar las últimas 5
+        const recent = allSolicitudes
           .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
           .slice(0, 5)
         setRecentActivity(recent)
+      } else {
+        // Solo solicitudes del departamento del usuario
+        if (solicitudesRes.success) {
+          const recent = solicitudesRes.data
+            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+            .slice(0, 5)
+          setRecentActivity(recent)
+        }
       }
 
     } catch (error) {
@@ -260,7 +332,7 @@ const Panel = () => {
                 ⚠️ Atención: Artículos con Stock Bajo
               </h3>
               <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                Hay {stats.articulosBajoStock} artículo(s) con menos de 10 unidades en existencia. 
+                Hay {stats.articulosBajoStock} artículo(s) con existencia por debajo de su cantidad mínima. 
                 Considera realizar una entrada de mercancía pronto.
               </p>
             </div>
