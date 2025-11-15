@@ -715,19 +715,27 @@ const EntradaMercancia = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {selectedEntrada.articulos && selectedEntrada.articulos.map((art, index) => (
-                            <tr key={`art-detalle-${art.articulo}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                {art.articulo}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
-                                {art.cantidad}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
-                                {getUnidadLabel(art.unidad)}
+                          {selectedEntrada.articulos && selectedEntrada.articulos.length > 0 ? (
+                            selectedEntrada.articulos.map((art, index) => (
+                              <tr key={`art-detalle-${art.articulo || art.codigo}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                  {art.nombre || art.articulo || art.codigo || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
+                                  {art.cantidad || 0}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
+                                  {getUnidadLabel(art.unidad)}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                                No hay artículos registrados
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>

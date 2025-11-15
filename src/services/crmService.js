@@ -548,6 +548,32 @@ export const crmService = {
 
       if (error) throw error
 
+      // Parsear articulos_cantidades_unidades
+      if (data.articulos_cantidades_unidades) {
+        try {
+          let articulosParsed = null
+          if (typeof data.articulos_cantidades_unidades === 'string') {
+            articulosParsed = JSON.parse(data.articulos_cantidades_unidades)
+          } else {
+            articulosParsed = data.articulos_cantidades_unidades
+          }
+          
+          // Crear propiedad articulos con el formato esperado por el componente
+          data.articulos = articulosParsed.map(art => ({
+            codigo: art.codigo || art.articulo || '',
+            articulo: art.codigo || art.articulo || '',
+            nombre: art.nombre || art.descripcion || art.codigo || art.articulo || '',
+            cantidad: art.cantidad || 0,
+            unidad: art.unidad || 'UNIDAD'
+          }))
+        } catch (parseError) {
+          console.error('Error al parsear articulos_cantidades_unidades:', parseError)
+          data.articulos = []
+        }
+      } else {
+        data.articulos = []
+      }
+
       return {
         success: true,
         data
