@@ -70,7 +70,7 @@ export const canAccessRoute = (user, route) => {
     '/solicitudes-despachadas': ['Administrador', 'Encargado de Suministro', 'Suministro'],
     '/articulos': ['Administrador', 'Encargado de Suministro', 'Suministro'],
     '/entrada-mercancia': ['Administrador', 'Encargado de Suministro', 'Suministro'],
-    '/departamentos': ['Administrador'],
+    '/departamentos': ['Administrador', 'Encargado de Suministro', 'Suministro'],
     '/usuarios': ['Administrador']
   }
   

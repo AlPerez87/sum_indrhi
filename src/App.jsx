@@ -163,7 +163,7 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <RequireRole roles={['Administrador']}>
+              <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
                 <Departamentos />
               </RequireRole>
             </Dashboard> : 
