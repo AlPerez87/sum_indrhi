@@ -4,6 +4,7 @@ import { crmService } from '../services/crmService'
 import { getUnidadLabel } from '../constants/unidades'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
+import ConfirmModal from './ConfirmModal'
 
 const Articulos = () => {
   const [articulos, setArticulos] = useState([])
@@ -15,6 +16,7 @@ const Articulos = () => {
   const [editingId, setEditingId] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
   const [showBajoMinimo, setShowBajoMinimo] = useState(false)
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, articulo: null })
   const [formData, setFormData] = useState({
     codigo: '',
     descripcion: '',
@@ -34,6 +36,15 @@ const Articulos = () => {
     return parseFloat(value).toLocaleString('es-DO', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
+    })
+  }
+
+  // Función para formatear números con separador de miles (sin decimales)
+  const formatNumber = (value) => {
+    if (!value || isNaN(value)) return '0'
+    return parseFloat(value).toLocaleString('es-DO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     })
   }
 
@@ -104,18 +115,24 @@ const Articulos = () => {
     setShowForm(true)
   }
 
-  const handleDelete = async (id, codigo) => {
-    if (window.confirm(`¿Estás seguro de eliminar el artículo "${codigo}"?`)) {
-      const result = await crmService.deleteArticulo(id)
-      
-      if (result.success) {
-        setSuccessMessage(result.message)
-        setTimeout(() => setSuccessMessage(''), 3000)
-        fetchArticulos()
-      } else {
-        setError(result.message)
-        setTimeout(() => setError(''), 3000)
-      }
+  const handleDelete = (articulo) => {
+    setConfirmModal({
+      isOpen: true,
+      articulo: articulo
+    })
+  }
+
+  const confirmDeleteArticulo = async () => {
+    const articulo = confirmModal.articulo
+    const result = await crmService.deleteArticulo(articulo.id)
+    
+    if (result.success) {
+      setSuccessMessage(result.message)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      fetchArticulos()
+    } else {
+      setError(result.message)
+      setTimeout(() => setError(''), 3000)
     }
   }
 
@@ -137,7 +154,8 @@ const Articulos = () => {
   }
 
   const calculateTotal = (existencia, valor) => {
-    return (parseFloat(existencia || 0) * parseFloat(valor || 0)).toFixed(2)
+    const total = parseFloat(existencia || 0) * parseFloat(valor || 0)
+    return formatCurrency(total)
   }
 
   const filteredArticulos = articulos.filter(articulo => {
@@ -165,6 +183,20 @@ const Articulos = () => {
     handlePageChange,
     handleItemsPerPageChange
   } = usePagination(filteredArticulos)
+
+  // Resetear página cuando se activa/desactiva el filtro de bajo mínimo
+  useEffect(() => {
+    if (currentPage > 1) {
+      const maxPage = Math.ceil(filteredArticulos.length / itemsPerPage)
+      if (maxPage > 0 && currentPage > maxPage) {
+        handlePageChange(1)
+      }
+    } else if (showBajoMinimo && currentPage > 1) {
+      // Si se activa el filtro y estamos en una página mayor a 1, volver a la primera
+      handlePageChange(1)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBajoMinimo])
 
   if (loading) {
     return (
@@ -459,7 +491,7 @@ const Articulos = () => {
                       {articulo.cantidad_minima || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      RD$ {formatCurrency(articulo.valor)}
+                      RD$ {formatCurrency(articulo.valor || 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary-600 dark:text-primary-400">
                       RD$ {calculateTotal(articulo.existencia, articulo.valor)}
@@ -477,7 +509,7 @@ const Articulos = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(articulo.id, articulo.codigo)}
+                          onClick={() => handleDelete(articulo)}
                           className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Eliminar"
                         >
@@ -505,6 +537,17 @@ const Articulos = () => {
           />
         )}
       </div>
+
+      {/* Modal de Confirmación */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, articulo: null })}
+        onConfirm={confirmDeleteArticulo}
+        title="Eliminar Artículo"
+        message={`¿Está seguro de eliminar el artículo "${confirmModal.articulo?.codigo}"?`}
+        confirmText="Eliminar"
+        type="danger"
+      />
     </div>
   )
 }

@@ -422,7 +422,7 @@ const Dashboard = ({ onLogout, children }) => {
                 aria-label="Menú de usuario"
               >
                 <span className="text-white font-semibold text-sm">
-                  {user?.display_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                  {(user?.nombre_completo || user?.display_name || user?.username)?.charAt(0)?.toUpperCase() || 'U'}
                 </span>
               </button>
 
@@ -432,7 +432,7 @@ const Dashboard = ({ onLogout, children }) => {
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {user?.display_name || user?.username}
+                      {user?.nombre_completo || user?.display_name || user?.username}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words">
                       {user?.email}

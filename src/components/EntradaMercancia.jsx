@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, X, Trash2, AlertCircle, Package } from 'lucide-react'
+import { Search, Plus, Eye, X, Trash2, AlertCircle, Package, Check } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import { getUnidadLabel } from '../constants/unidades'
 import Pagination from './Pagination'
@@ -29,6 +29,7 @@ const EntradaMercancia = () => {
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   // Cargar entradas y artículos
   useEffect(() => {
@@ -241,8 +242,9 @@ const EntradaMercancia = () => {
           unidad: 'UNIDAD'
         })
         setError('')
+        setSuccessMessage('Entrada de mercancía creada correctamente')
+        setTimeout(() => setSuccessMessage(''), 3000)
         await loadData()
-        alert('Entrada de mercancía creada correctamente')
       } else {
         setError(result.message || 'Error al crear la entrada')
       }
@@ -305,6 +307,21 @@ const EntradaMercancia = () => {
           Nueva Entrada
         </button>
       </div>
+
+      {/* Messages */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg animate-shake">
+          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+          <p className="text-red-800 dark:text-red-300">{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-fade-in">
+          <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <p className="text-green-800 dark:text-green-300">{successMessage}</p>
+        </div>
+      )}
 
       {/* Buscador */}
       <div className="card p-4">

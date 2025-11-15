@@ -5,6 +5,7 @@ import { authService } from '../services/authService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
 import SearchableSelect from './SearchableSelect'
+import ConfirmModal from './ConfirmModal'
 
 const SolicitudArticulos = () => {
   const [solicitudes, setSolicitudes] = useState([])
@@ -29,6 +30,7 @@ const SolicitudArticulos = () => {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, data: null })
 
   // Obtener datos del usuario logueado
   const [currentUser, setCurrentUser] = useState(null)
@@ -294,11 +296,16 @@ const SolicitudArticulos = () => {
   }
 
   // Eliminar solicitud
-  const handleEliminarSolicitud = async (solicitud) => {
-    if (!confirm('¿Está seguro de eliminar esta solicitud?')) {
-      return
-    }
+  const handleEliminarSolicitud = (solicitud) => {
+    setConfirmModal({
+      isOpen: true,
+      action: 'delete',
+      data: solicitud
+    })
+  }
 
+  const confirmDeleteSolicitud = async () => {
+    const solicitud = confirmModal.data
     const result = await crmService.deleteSolicitud(solicitud.id)
     if (result.success) {
       setSuccessMessage('Solicitud eliminada correctamente')
@@ -311,7 +318,7 @@ const SolicitudArticulos = () => {
   }
 
   // Enviar solicitud a autorización
-  const handleEnviarSolicitud = async (solicitud) => {
+  const handleEnviarSolicitud = (solicitud) => {
     // Verificar si ya está enviada
     if (solicitud.enviada === 1) {
       setError('Esta solicitud ya fue enviada anteriormente')
@@ -319,10 +326,15 @@ const SolicitudArticulos = () => {
       return
     }
 
-    if (!confirm(`¿Está seguro de enviar la solicitud ${solicitud.numero_solicitud} a autorización?`)) {
-      return
-    }
+    setConfirmModal({
+      isOpen: true,
+      action: 'send',
+      data: solicitud
+    })
+  }
 
+  const confirmEnviarSolicitud = async () => {
+    const solicitud = confirmModal.data
     const result = await crmService.enviarSolicitud(solicitud.id)
     if (result.success) {
       setSuccessMessage('Solicitud enviada a autorización correctamente')
@@ -1003,6 +1015,27 @@ const SolicitudArticulos = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Confirmación */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, action: null, data: null })}
+        onConfirm={() => {
+          if (confirmModal.action === 'delete') {
+            confirmDeleteSolicitud()
+          } else if (confirmModal.action === 'send') {
+            confirmEnviarSolicitud()
+          }
+        }}
+        title={confirmModal.action === 'delete' ? 'Eliminar Solicitud' : 'Enviar Solicitud'}
+        message={
+          confirmModal.action === 'delete'
+            ? `¿Está seguro de eliminar la solicitud ${confirmModal.data?.numero_solicitud}?`
+            : `¿Está seguro de enviar la solicitud ${confirmModal.data?.numero_solicitud} a autorización?`
+        }
+        confirmText={confirmModal.action === 'delete' ? 'Eliminar' : 'Enviar'}
+        type={confirmModal.action === 'delete' ? 'danger' : 'default'}
+      />
     </div>
   )
 }

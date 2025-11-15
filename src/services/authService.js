@@ -64,12 +64,13 @@ export const authService = {
         id: data.user.id,
         email: data.user.email,
         username: userInfo?.username || email.split('@')[0],
+        nombre_completo: userInfo?.nombre_completo || userInfo?.username || email.split('@')[0],
         rol: rolFrontend, // Mantener para compatibilidad
         roles: [rolFrontend], // Array para RequireRole
         perfil: rolFrontend, // Para RequireRole
         departamento_id: userInfo?.departamento_id || null,
         departamento: userInfo?.sum_departamentos?.departamento || null,
-        display_name: userInfo?.username || email.split('@')[0]
+        display_name: userInfo?.nombre_completo || userInfo?.username || email.split('@')[0]
       }
 
       localStorage.setItem('indrhi_user', JSON.stringify(userData))

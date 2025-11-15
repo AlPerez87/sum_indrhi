@@ -3,6 +3,7 @@ import { Building2, Search, RefreshCw, AlertCircle, Plus, Edit, Trash2, X, Check
 import { crmService } from '../services/crmService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
+import ConfirmModal from './ConfirmModal'
 
 const Departamentos = () => {
   const [departamentos, setDepartamentos] = useState([])
@@ -12,6 +13,7 @@ const Departamentos = () => {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, departamento: null })
   const [formData, setFormData] = useState({
     codigo: '',
     departamento: ''
@@ -70,18 +72,24 @@ const Departamentos = () => {
     setShowForm(true)
   }
 
-  const handleDelete = async (id, nombre) => {
-    if (window.confirm(`¿Estás seguro de eliminar el departamento "${nombre}"?`)) {
-      const result = await crmService.deleteDepartamento(id)
-      
-      if (result.success) {
-        setSuccessMessage(result.message)
-        setTimeout(() => setSuccessMessage(''), 3000)
-        fetchDepartamentos()
-      } else {
-        setError(result.message)
-        setTimeout(() => setError(''), 3000)
-      }
+  const handleDelete = (departamento) => {
+    setConfirmModal({
+      isOpen: true,
+      departamento: departamento
+    })
+  }
+
+  const confirmDeleteDepartamento = async () => {
+    const departamento = confirmModal.departamento
+    const result = await crmService.deleteDepartamento(departamento.id)
+    
+    if (result.success) {
+      setSuccessMessage(result.message)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      fetchDepartamentos()
+    } else {
+      setError(result.message)
+      setTimeout(() => setError(''), 3000)
     }
   }
 
@@ -310,7 +318,7 @@ const Departamentos = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(depto.id, depto.departamento)}
+                          onClick={() => handleDelete(depto)}
                           className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Eliminar"
                         >
@@ -338,6 +346,17 @@ const Departamentos = () => {
           />
         )}
       </div>
+
+      {/* Modal de Confirmación */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, departamento: null })}
+        onConfirm={confirmDeleteDepartamento}
+        title="Eliminar Departamento"
+        message={`¿Está seguro de eliminar el departamento "${confirmModal.departamento?.departamento}"?`}
+        confirmText="Eliminar"
+        type="danger"
+      />
     </div>
   )
 }
