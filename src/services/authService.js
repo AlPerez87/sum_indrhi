@@ -46,22 +46,19 @@ export const authService = {
             id,
             codigo,
             departamento
+          ),
+          sum_roles:rol_id (
+            id,
+            nombre,
+            descripcion
           )
         `)
         .eq('email', email)
         .single()
 
-      // Mapear roles de la BD al formato del frontend
-      const rolMapping = {
-        'Administrator': 'Administrador',
-        'Director': 'Director',
-        'Encargado de suministro': 'Encargado de suministro',
-        'Usuario': 'Usuario',
-        'Departamento_administrativo': 'Usuario'
-      }
-
-      const rolBD = userInfo?.rol || 'Usuario'
-      const rolFrontend = rolMapping[rolBD] || rolBD
+      // Obtener el rol desde la relación con sum_roles
+      const rolBD = userInfo?.sum_roles?.nombre || 'Usuario'
+      const rolFrontend = rolBD
 
       const userData = {
         id: data.user.id,
@@ -116,21 +113,20 @@ export const authService = {
                 id,
                 codigo,
                 departamento
+              ),
+              sum_roles:rol_id (
+                id,
+                nombre,
+                descripcion
               )
             `)
             .eq('email', user.email)
             .single()
 
           if (userInfo) {
-            const rolMapping = {
-              'Administrator': 'Administrador',
-              'Director': 'Director',
-              'Encargado de suministro': 'Encargado de suministro',
-              'Usuario': 'Usuario',
-              'Departamento_administrativo': 'Usuario'
-            }
-            const rolBD = userInfo.rol || 'Usuario'
-            const rolFrontend = rolMapping[rolBD] || rolBD
+            // Obtener el rol desde la relación con sum_roles
+            const rolBD = userInfo.sum_roles?.nombre || 'Usuario'
+            const rolFrontend = rolBD
 
             const updatedUser = {
               ...currentUser,

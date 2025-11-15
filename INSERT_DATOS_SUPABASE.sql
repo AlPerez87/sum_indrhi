@@ -519,10 +519,13 @@ SELECT setval('sum_articulos_id_seq', 242, true);
 -- =====================================================
 -- ✅ Usuarios ya creados en Supabase Auth
 
-INSERT INTO sum_usuarios_departamentos (user_id, username, email, rol, departamento_id) VALUES
-('f4f8340b-b9f7-4674-8466-52b5819c57dd', 'App', 'ing.aperezp@gmail.com', 'Administrator', 81),
-('9c1572ad-1e73-4523-8007-17fa8d7ad6c6', 'TIC', 'tic@indrhi.gob.do', 'Administrator', 81),
-('77ad0f05-d01b-4008-a8d0-70e5d216e4da', 'emedina', 'emedina@indrhi.gob.do', 'Administrator', 198);
+-- Insertar usuarios usando rol_id en lugar de rol
+-- Nota: Asegúrate de que los roles existan en sum_roles antes de ejecutar esto
+INSERT INTO sum_usuarios_departamentos (user_id, username, email, rol_id, departamento_id) VALUES
+('f4f8340b-b9f7-4674-8466-52b5819c57dd', 'App', 'ing.aperezp@gmail.com', (SELECT id FROM sum_roles WHERE nombre = 'Administrador' LIMIT 1), 81),
+('9c1572ad-1e73-4523-8007-17fa8d7ad6c6', 'TIC', 'tic@indrhi.gob.do', (SELECT id FROM sum_roles WHERE nombre = 'Administrador' LIMIT 1), 81),
+('77ad0f05-d01b-4008-a8d0-70e5d216e4da', 'emedina', 'emedina@indrhi.gob.do', (SELECT id FROM sum_roles WHERE nombre = 'Administrador' LIMIT 1), 198)
+ON CONFLICT (email) DO NOTHING;
 
 -- Ajustar la secuencia después de insertar (3 usuarios)
 SELECT setval('sum_usuarios_departamentos_id_seq', 3, true);

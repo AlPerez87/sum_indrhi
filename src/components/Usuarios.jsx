@@ -8,13 +8,16 @@ import SearchableSelect from './SearchableSelect'
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([])
   const [departamentos, setDepartamentos] = useState([])
+  const [roles, setRoles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [editingUser, setEditingUser] = useState(null)
+  const [editingRol, setEditingRol] = useState(null)
   const [changingPassword, setChangingPassword] = useState(null)
   const [newPassword, setNewPassword] = useState('')
   const [selectedDepartamento, setSelectedDepartamento] = useState('')
+  const [selectedRol, setSelectedRol] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
@@ -25,9 +28,10 @@ const Usuarios = () => {
     setLoading(true)
     setError('')
     
-    const [usuariosResult, deptosResult] = await Promise.all([
+    const [usuariosResult, deptosResult, rolesResult] = await Promise.all([
       crmService.getUsuariosDepartamentos(),
-      crmService.getDepartamentos(1, 10000, '') // Obtener todos los departamentos
+      crmService.getDepartamentos(1, 10000, ''), // Obtener todos los departamentos
+      crmService.getRoles() // Obtener todos los roles
     ])
     
     if (usuariosResult.success) {
@@ -38,6 +42,10 @@ const Usuarios = () => {
     
     if (deptosResult.success) {
       setDepartamentos(deptosResult.data)
+    }
+    
+    if (rolesResult.success) {
+      setRoles(rolesResult.data)
     }
     
     setLoading(false)
@@ -59,6 +67,30 @@ const Usuarios = () => {
       setTimeout(() => setSuccessMessage(''), 3000)
       fetchData()
       setEditingUser(null)
+      setSelectedDepartamento('')
+    } else {
+      setError(result.message)
+      setTimeout(() => setError(''), 3000)
+    }
+  }
+
+  const handleEditRol = (usuario) => {
+    setEditingRol(usuario.id)
+    setSelectedRol(usuario.rol_id || '')
+  }
+
+  const handleSaveRol = async (id) => {
+    const result = await crmService.updateUsuarioRol(
+      id,
+      selectedRol === '' ? null : parseInt(selectedRol)
+    )
+    
+    if (result.success) {
+      setSuccessMessage('Rol actualizado correctamente')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      fetchData()
+      setEditingRol(null)
+      setSelectedRol('')
     } else {
       setError(result.message)
       setTimeout(() => setError(''), 3000)
@@ -225,10 +257,55 @@ const Usuarios = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                       {usuario.email}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className="badge-info">
-                        {usuario.rol}
-                      </span>
+                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                      {editingRol === usuario.id ? (
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-[200px]">
+                            <SearchableSelect
+                              options={[
+                                { value: '', label: 'Sin asignar' },
+                                ...roles.map((rol) => ({
+                                  value: String(rol.id),
+                                  label: rol.nombre
+                                }))
+                              ]}
+                              value={String(selectedRol)}
+                              onChange={(value) => {
+                                console.log('Rol seleccionado:', value)
+                                setSelectedRol(value)
+                              }}
+                              placeholder="Seleccionar rol"
+                              searchPlaceholder="Buscar rol..."
+                              className="py-1 text-sm"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleSaveRol(usuario.id)}
+                            className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
+                            title="Guardar"
+                          >
+                            <Check className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingRol(null)
+                              setSelectedRol('')
+                            }}
+                            className="p-1 text-red-600 hover:text-red-700 dark:text-red-400"
+                            title="Cancelar"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        usuario.sum_roles?.nombre ? (
+                          <span className="badge-info">
+                            {usuario.sum_roles.nombre}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500 italic">Sin asignar</span>
+                        )
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                       {editingUser === usuario.id ? (
@@ -260,7 +337,10 @@ const Usuarios = () => {
                             <Check className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={() => setEditingUser(null)}
+                            onClick={() => {
+                              setEditingUser(null)
+                              setSelectedDepartamento('')
+                            }}
                             className="p-1 text-red-600 hover:text-red-700 dark:text-red-400"
                             title="Cancelar"
                           >
@@ -305,10 +385,18 @@ const Usuarios = () => {
                       ) : (
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            onClick={() => handleEditRol(usuario)}
+                            className="p-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                            title="Editar rol"
+                            disabled={editingRol !== null || editingUser !== null}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleEditDepartamento(usuario)}
                             className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title="Editar departamento"
-                            disabled={editingUser !== null}
+                            disabled={editingUser !== null || editingRol !== null}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -316,7 +404,7 @@ const Usuarios = () => {
                             onClick={() => handleChangePassword(usuario)}
                             className="p-2 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                             title="Cambiar contraseña"
-                            disabled={changingPassword !== null}
+                            disabled={changingPassword !== null || editingUser !== null || editingRol !== null}
                           >
                             <Key className="w-4 h-4" />
                           </button>
