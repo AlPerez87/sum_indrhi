@@ -13,7 +13,6 @@
 -- =====================================================
 -- PASO 1: Verificar roles actuales y usuarios asignados
 -- =====================================================
--- Ejecuta esto primero para ver qué roles existen y cuántos usuarios tienen cada uno
 SELECT 
   r.id,
   r.nombre AS rol_actual,
@@ -155,25 +154,3 @@ SELECT
 FROM sum_roles
 WHERE activo = TRUE
 ORDER BY nombre;
-
--- =====================================================
--- NOTAS IMPORTANTES
--- =====================================================
--- 1. Los roles antiguos (Director, Usuario, Almacenista) se desactivan pero NO se eliminan
---    por seguridad y para mantener el historial.
---
--- 2. Si necesitas ajustar la migración de usuarios de un rol específico a otro,
---    modifica el PASO 3 antes de ejecutar.
---
--- 3. Los roles activos finales serán:
---    - Administrador
---    - Dirección Administrativa
---    - Encargado de Suministro
---    - Suministro
---    - Departamento
---
--- 4. Después de ejecutar este script, verifica que:
---    - Todos los usuarios tienen un rol válido asignado
---    - La aplicación muestra correctamente los nuevos roles
---    - Los permisos funcionan según lo esperado
-

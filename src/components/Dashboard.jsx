@@ -33,6 +33,7 @@ import { authService } from '../services/authService'
 import { useTheme } from '../context/ThemeContext'
 import { crmService } from '../services/crmService'
 import CambiarPasswordModal from './CambiarPasswordModal'
+import { filterMenuItems } from '../utils/permissions'
 
 const Dashboard = ({ onLogout, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -133,7 +134,7 @@ const Dashboard = ({ onLogout, children }) => {
 
   const expandAllMenus = () => {
     const allMenus = {}
-    menuItems.forEach(item => {
+    allMenuItems.forEach(item => {
       if (item.submenu) {
         allMenus[item.key] = true
       }
@@ -182,7 +183,7 @@ const Dashboard = ({ onLogout, children }) => {
     localStorage.setItem('indrhi_notifications', JSON.stringify(updatedNotifications))
   }
 
-  const menuItems = [
+  const allMenuItems = [
     { 
       path: '/dashboard', 
       icon: LayoutDashboard, 
@@ -262,6 +263,9 @@ const Dashboard = ({ onLogout, children }) => {
       ]
     }
   ]
+
+  // Filtrar elementos del menú según los permisos del usuario
+  const menuItems = filterMenuItems(allMenuItems, user)
 
   const isActive = (path) => location.pathname === path
 

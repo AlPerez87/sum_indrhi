@@ -13,6 +13,8 @@ import SolicitudesDespachadas from './components/SolicitudesDespachadas'
 import Departamentos from './components/Departamentos'
 import Usuarios from './components/Usuarios'
 import RequireRole from './components/RequireRole'
+import RedirectByRole from './components/RedirectByRole'
+import ProtectedDashboard from './components/ProtectedDashboard'
 import { authService } from './services/authService'
 
 function App() {
@@ -54,7 +56,7 @@ function App() {
           path="/login" 
           element={
             isAuthenticated ? 
-            <Navigate to="/dashboard" replace /> : 
+            <RedirectByRole /> : 
             <Login onLogin={handleLogin} />
           } 
         />
@@ -62,9 +64,13 @@ function App() {
           path="/dashboard" 
           element={
             isAuthenticated ? 
-            <Dashboard onLogout={handleLogout}>
-              <Panel />
-            </Dashboard> : 
+            <ProtectedDashboard>
+              <Dashboard onLogout={handleLogout}>
+                <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
+                  <Panel />
+                </RequireRole>
+              </Dashboard>
+            </ProtectedDashboard> : 
             <Navigate to="/login" replace />
           } 
         />
@@ -73,7 +79,7 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <RequireRole roles={['Administrador', 'Encargado de suministro']}>
+              <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
                 <Articulos />
               </RequireRole>
             </Dashboard> : 
@@ -85,7 +91,7 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <RequireRole roles={['Administrador', 'Encargado de suministro']}>
+              <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
                 <EntradaMercancia />
               </RequireRole>
             </Dashboard> : 
@@ -97,7 +103,9 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <SolicitudArticulos />
+              <RequireRole roles={['Administrador', 'Departamento']}>
+                <SolicitudArticulos />
+              </RequireRole>
             </Dashboard> : 
             <Navigate to="/login" replace />
           } 
@@ -107,7 +115,7 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <RequireRole roles={['Administrador', 'Director', 'Encargado de suministro']}>
+              <RequireRole roles={['Administrador', 'Dirección Administrativa']}>
                 <AutorizarSolicitudes />
               </RequireRole>
             </Dashboard> : 
@@ -119,7 +127,7 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <RequireRole roles={['Administrador', 'Encargado de suministro']}>
+              <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
                 <SolicitudesAprobadas />
               </RequireRole>
             </Dashboard> : 
@@ -131,7 +139,7 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <RequireRole roles={['Administrador', 'Encargado de suministro']}>
+              <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
                 <SolicitudesGestionadas />
               </RequireRole>
             </Dashboard> : 
@@ -143,7 +151,9 @@ function App() {
           element={
             isAuthenticated ? 
             <Dashboard onLogout={handleLogout}>
-              <SolicitudesDespachadas />
+              <RequireRole roles={['Administrador', 'Encargado de Suministro', 'Suministro']}>
+                <SolicitudesDespachadas />
+              </RequireRole>
             </Dashboard> : 
             <Navigate to="/login" replace />
           } 

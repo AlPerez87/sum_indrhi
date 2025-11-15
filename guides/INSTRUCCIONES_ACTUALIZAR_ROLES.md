@@ -32,7 +32,7 @@ ORDER BY r.nombre;
 ### Paso 2: Ejecutar el Script de Actualización
 
 1. Abre el **SQL Editor** en tu proyecto de Supabase
-2. Abre el archivo `ACTUALIZAR_ROLES.sql`
+2. Abre el archivo `guides/ACTUALIZAR_ROLES.sql`
 3. Copia y pega **todo el contenido** en el SQL Editor
 4. Ejecuta el script completo
 5. Verifica que no haya errores
@@ -170,13 +170,3 @@ Después de ejecutar el script, verifica:
 3. ✅ La aplicación muestra correctamente los nuevos roles
 4. ✅ Los usuarios pueden iniciar sesión correctamente
 5. ✅ No hay errores en la consola del navegador
-
-## 📝 Próximos Pasos
-
-Después de actualizar los roles, necesitarás:
-
-1. Configurar los permisos para cada rol
-2. Actualizar las políticas RLS si es necesario
-3. Probar que cada rol tiene acceso a las funcionalidades correctas
-4. Documentar los permisos de cada rol
-

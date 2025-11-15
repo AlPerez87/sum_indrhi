@@ -136,16 +136,6 @@ const Panel = () => {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow-lg p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">
-          ¡Bienvenido, {user?.display_name || user?.username}! 👋
-        </h1>
-        <p className="text-primary-100">
-          Aquí está el resumen de tu sistema de suministros
-        </p>
-      </div>
-
       {/* Estadísticas principales */}
       <div>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
