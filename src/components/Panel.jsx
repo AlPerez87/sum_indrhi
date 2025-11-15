@@ -85,15 +85,15 @@ const Panel = () => {
 
       // Para roles Encargado de Suministro y Suministro, usar todas las solicitudes
       const solicitudesAprobadas = canViewAll 
-        ? (approbadasRes.success ? approbadasRes.data.length : 0)
+        ? (approbadasRes.success ? approbadasRes.data.filter(s => s && s.id).length : 0)
         : (solicitudesRes.success ? solicitudesRes.data.filter(s => s.estado === 'aprobada').length : 0)
       
       const solicitudesGestionadas = canViewAll
-        ? (gestionadasRes.success ? gestionadasRes.data.length : 0)
+        ? (gestionadasRes.success ? gestionadasRes.data.filter(s => s && s.id).length : 0)
         : 0
       
       const solicitudesDespachadas = canViewAll
-        ? (despachadasRes.success ? despachadasRes.data.length : 0)
+        ? (despachadasRes.success ? despachadasRes.data.filter(s => s && s.id).length : 0)
         : 0
 
       setStats({
@@ -120,25 +120,31 @@ const Panel = () => {
             tipo: 'pendiente'
           })))
         }
-        if (approbadasRes.success) {
-          allSolicitudes.push(...approbadasRes.data.map(s => ({
+        if (approbadasRes.success && approbadasRes.data) {
+          allSolicitudes.push(...approbadasRes.data.filter(s => s && s.id).map(s => ({
             ...s,
             tipo: 'aprobada',
-            estado: 'aprobada'
+            estado: 'aprobada',
+            departamento: s.departamento || 'N/A',
+            total_articulos: s.total_articulos || 0
           })))
         }
-        if (gestionadasRes.success) {
-          allSolicitudes.push(...gestionadasRes.data.map(s => ({
+        if (gestionadasRes.success && gestionadasRes.data) {
+          allSolicitudes.push(...gestionadasRes.data.filter(s => s && s.id).map(s => ({
             ...s,
             tipo: 'gestionada',
-            estado: 'gestionada'
+            estado: 'gestionada',
+            departamento: s.departamento || 'N/A',
+            total_articulos: s.total_articulos || 0
           })))
         }
-        if (despachadasRes.success) {
-          allSolicitudes.push(...despachadasRes.data.map(s => ({
+        if (despachadasRes.success && despachadasRes.data) {
+          allSolicitudes.push(...despachadasRes.data.filter(s => s && s.id).map(s => ({
             ...s,
             tipo: 'despachada',
-            estado: 'despachada'
+            estado: 'despachada',
+            departamento: s.departamento || 'N/A',
+            total_articulos: s.total_articulos || 0
           })))
         }
         
@@ -151,6 +157,10 @@ const Panel = () => {
         // Solo solicitudes del departamento del usuario
         if (solicitudesRes.success) {
           const recent = solicitudesRes.data
+            .map(s => ({
+              ...s,
+              tipo: s.enviada ? 'enviada' : 'pendiente'
+            }))
             .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
             .slice(0, 5)
           setRecentActivity(recent)
@@ -301,12 +311,29 @@ const Panel = () => {
                   </div>
                 </div>
                 <div className="text-right">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    {solicitud.tipo === 'pendiente' ? 'Pendiente' :
+                     solicitud.tipo === 'aprobada' ? 'Aprobada' :
+                     solicitud.tipo === 'gestionada' ? 'En Gestión' :
+                     solicitud.tipo === 'despachada' ? 'Despachada' :
+                     solicitud.estado === 'enviado' ? 'Enviada' : 'Borrador'}
+                  </p>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    solicitud.estado === 'enviado' 
+                    solicitud.tipo === 'despachada' 
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                      : solicitud.tipo === 'gestionada'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      : solicitud.tipo === 'aprobada'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : solicitud.estado === 'enviado' 
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                       : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                   }`}>
-                    {solicitud.estado}
+                    {solicitud.tipo === 'pendiente' ? 'Pendiente' :
+                     solicitud.tipo === 'aprobada' ? 'Aprobada' :
+                     solicitud.tipo === 'gestionada' ? 'En Gestión' :
+                     solicitud.tipo === 'despachada' ? 'Despachada' :
+                     solicitud.estado === 'enviado' ? 'Enviada' : 'Borrador'}
                   </span>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {new Date(solicitud.fecha).toLocaleDateString('es-DO')}
