@@ -170,13 +170,6 @@ const Usuarios = () => {
         />
       </div>
 
-      {/* Info Note */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <p className="text-sm text-blue-800 dark:text-blue-300">
-          <strong>Nota:</strong> Para cambiar roles o eliminar usuarios, hazlo desde el panel de WordPress.
-        </p>
-      </div>
-
       {/* Table */}
       <div className="card overflow-hidden">
         {/* Paginación Superior */}
