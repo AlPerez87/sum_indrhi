@@ -634,10 +634,16 @@ const EntradaMercancia = () => {
                   {/* Selector de artículo */}
                   <div className="col-span-12 md:col-span-7">
                     <SearchableSelect
-                      options={articulos.map(art => ({
-                        value: art.articulo,
-                        label: art.descripcion || art.codigo // Descripción o código como fallback
-                      }))}
+                      options={articulos
+                        .filter(art => {
+                          // Filtrar artículos que ya están en la lista
+                          const codigoArticulo = art.codigo || art.articulo
+                          return !articulosSeleccionados.some(sel => sel.codigo === codigoArticulo)
+                        })
+                        .map(art => ({
+                          value: art.articulo,
+                          label: art.descripcion || art.codigo // Descripción o código como fallback
+                        }))}
                       value={articuloActual.articulo}
                       onChange={(value) => {
                         console.log('EntradaMercancia - Artículo seleccionado:', value)
@@ -890,7 +896,7 @@ const EntradaMercancia = () => {
       {/* Modal Confirmar Eliminación */}
       {showDeleteConfirm && entradaToDelete && (
         <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">

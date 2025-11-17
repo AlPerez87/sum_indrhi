@@ -643,10 +643,15 @@ const SolicitudArticulos = () => {
                     {/* Selector de artículo */}
                     <div className="col-span-12 md:col-span-8">
                       <SearchableSelect
-                        options={articulos.map(art => ({
-                          value: art.articulo,
-                          label: art.descripcion || art.articulo
-                        }))}
+                        options={articulos
+                          .filter(art => {
+                            // Filtrar artículos que ya están en la lista
+                            return !articulosSeleccionados.some(sel => sel.codigo === art.articulo)
+                          })
+                          .map(art => ({
+                            value: art.articulo,
+                            label: art.descripcion || art.articulo
+                          }))}
                         value={articuloActual.articulo}
                         onChange={(value) => {
                           setArticuloActual({ ...articuloActual, articulo: value })
@@ -909,10 +914,15 @@ const SolicitudArticulos = () => {
                     {/* Selector de artículo */}
                     <div className="col-span-12 md:col-span-8">
                       <SearchableSelect
-                        options={articulos.map(art => ({
-                          value: art.articulo,
-                          label: art.descripcion || art.articulo
-                        }))}
+                        options={articulos
+                          .filter(art => {
+                            // Filtrar artículos que ya están en la lista
+                            return !articulosSeleccionados.some(sel => sel.codigo === art.articulo)
+                          })
+                          .map(art => ({
+                            value: art.articulo,
+                            label: art.descripcion || art.articulo
+                          }))}
                         value={articuloActual.articulo}
                         onChange={(value) => {
                           setArticuloActual({ ...articuloActual, articulo: value })
