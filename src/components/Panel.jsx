@@ -30,17 +30,36 @@ const Panel = () => {
   const user = authService.getCurrentUser()
 
   useEffect(() => {
-    loadDashboardData()
+    loadDashboardData(true)
+    
+    // Actualizar datos cada 30 segundos
+    const interval = setInterval(() => {
+      loadDashboardData(false)
+    }, 30000)
+    
+    // Actualizar cuando la ventana recupera el foco
+    const handleFocus = () => {
+      loadDashboardData(false)
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
-  const loadDashboardData = async () => {
-    setLoading(true)
+  const loadDashboardData = async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true)
+    }
     
     try {
       // Cargar estadísticas en paralelo
       const [
         articulosRes,
         solicitudesRes,
+        pendientesRes,
         approbadasRes,
         gestionadasRes,
         despachadasRes,
@@ -49,6 +68,7 @@ const Panel = () => {
       ] = await Promise.all([
         crmService.getArticulos(1, 10000, ''), // Obtener todos los artículos
         crmService.getSolicitudes(),
+        crmService.getAutorizarSolicitudes(), // Obtener solicitudes pendientes de autorización
         crmService.getSolicitudesAprobadas(),
         crmService.getSolicitudesGestionadas(),
         crmService.getSolicitudesDespachadas(),
@@ -61,10 +81,8 @@ const Panel = () => {
         ? articulosRes.data.filter(a => a.existencia < 10).length 
         : 0
 
-      // Filtrar solicitudes pendientes
-      const pendientes = solicitudesRes.success
-        ? solicitudesRes.data.filter(s => s.estado === 'borrador' || s.estado === 'pendiente').length
-        : 0
+      // Contar solicitudes pendientes (las que están en sum_autorizar_solicitudes)
+      const pendientes = pendientesRes.success ? pendientesRes.data.length : 0
 
       setStats({
         totalArticulos: articulosRes.success ? articulosRes.data.length : 0,
@@ -88,7 +106,9 @@ const Panel = () => {
     } catch (error) {
       console.error('Error al cargar datos del panel:', error)
     } finally {
-      setLoading(false)
+      if (showLoading) {
+        setLoading(false)
+      }
     }
   }
 
