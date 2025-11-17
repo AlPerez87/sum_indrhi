@@ -169,22 +169,22 @@ const SolicitudesDespachadas = () => {
 
       // Encabezados de la tabla con bordes
       pdf.setFillColor(240, 240, 240)
-      const headerHeight = 8
-      pdf.rect(margin, yPos - 5, colArtWidth, headerHeight, 'F')
-      pdf.rect(margin + colArtWidth, yPos - 5, colCantWidth, headerHeight, 'F')
+      const artHeaderHeight = 8
+      pdf.rect(margin, yPos - 5, colArtWidth, artHeaderHeight, 'F')
+      pdf.rect(margin + colArtWidth, yPos - 5, colCantWidth, artHeaderHeight, 'F')
       
       // Bordes del encabezado
       pdf.setDrawColor(0, 0, 0)
       pdf.setLineWidth(0.5)
-      pdf.rect(margin, yPos - 5, colArtWidth, headerHeight)
-      pdf.rect(margin + colArtWidth, yPos - 5, colCantWidth, headerHeight)
-      pdf.line(margin + colArtWidth, yPos - 5, margin + colArtWidth, yPos - 5 + headerHeight)
+      pdf.rect(margin, yPos - 5, colArtWidth, artHeaderHeight)
+      pdf.rect(margin + colArtWidth, yPos - 5, colCantWidth, artHeaderHeight)
+      pdf.line(margin + colArtWidth, yPos - 5, margin + colArtWidth, yPos - 5 + artHeaderHeight)
       
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(10)
       pdf.text('Artículo', margin + colArtWidth / 2, yPos, { align: 'center' })
       pdf.text('Cantidad', margin + colArtWidth + colCantWidth / 2, yPos, { align: 'center' })
-      yPos += headerHeight
+      yPos += artHeaderHeight
 
       // Datos de los artículos con bordes
       pdf.setFont('helvetica', 'normal')
