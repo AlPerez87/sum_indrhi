@@ -896,7 +896,7 @@ const EntradaMercancia = () => {
       {/* Modal Confirmar Eliminación */}
       {showDeleteConfirm && entradaToDelete && (
         <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-xl w-full">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -936,7 +936,7 @@ const EntradaMercancia = () => {
               </button>
               <button
                 onClick={handleEliminarEntrada}
-                className="btn-primary bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                className="btn-primary bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 inline-flex items-center gap-2"
                 disabled={saving}
               >
                 {saving ? (
