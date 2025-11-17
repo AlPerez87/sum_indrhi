@@ -97,18 +97,16 @@ const Panel = () => {
           }).length 
         : 0
 
-      // Filtrar solicitudes pendientes
-      const pendientes = solicitudesRes.success
-        ? solicitudesRes.data.filter(s => s.estado === 'borrador' || s.estado === 'pendiente').length
-        : 0
+      // Contar solicitudes pendientes (las que están en sum_autorizar_solicitudes)
+      const pendientes = pendientesRes.success ? pendientesRes.data.length : 0
 
       setStats({
         totalArticulos: articulosRes.success ? articulosRes.data.length : 0,
         articulosBajoStock: articulosBajo,
         solicitudesPendientes: pendientes,
-        solicitudesAprobadas: solicitudesAprobadas,
-        solicitudesGestionadas: solicitudesGestionadas,
-        solicitudesDespachadas: solicitudesDespachadas,
+        solicitudesAprobadas: approbadasRes.success ? approbadasRes.data.length : 0,
+        solicitudesGestionadas: gestionadasRes.success ? gestionadasRes.data.length : 0,
+        solicitudesDespachadas: despachadasRes.success ? despachadasRes.data.length : 0,
         totalDepartamentos: deptosRes.success ? deptosRes.data.length : 0,
         totalUsuarios: usuariosRes.success ? usuariosRes.data.length : 0
       })
@@ -175,6 +173,10 @@ const Panel = () => {
 
     } catch (error) {
       console.error('Error al cargar datos del panel:', error)
+      // Asegurar que el estado de carga se actualice incluso si hay errores
+      if (showLoading) {
+        setLoading(false)
+      }
     } finally {
       if (showLoading) {
         setLoading(false)
