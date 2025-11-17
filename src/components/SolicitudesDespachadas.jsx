@@ -63,7 +63,7 @@ const SolicitudesDespachadas = () => {
       const margin = 20
       const contentWidth = pageWidth - (margin * 2)
 
-      // Cargar y agregar logo
+      // Cargar y agregar logo (tamaño incrementado)
       const logoImg = new Image()
       logoImg.crossOrigin = 'anonymous'
       logoImg.src = '/logo-indrhi.png'
@@ -73,7 +73,7 @@ const SolicitudesDespachadas = () => {
         logoImg.onload = () => {
           clearTimeout(timeout)
           try {
-            const logoWidth = 60
+            const logoWidth = 75 // Incrementado de 60 a 75
             const logoHeight = (logoImg.height * logoWidth) / logoImg.width
             const logoX = (pageWidth - logoWidth) / 2
             pdf.addImage(logoImg, 'PNG', logoX, margin, logoWidth, logoHeight)
@@ -88,31 +88,74 @@ const SolicitudesDespachadas = () => {
         }
       })
 
-      let yPos = margin + 35
+      let yPos = margin + 40
 
       // Título del documento
       pdf.setFontSize(16)
       pdf.setFont('helvetica', 'bold')
       pdf.text('SOLICITUD DESPACHADA', pageWidth / 2, yPos, { align: 'center' })
-      yPos += 10
+      yPos += 12
 
-      // Información de la solicitud
-      pdf.setFontSize(11)
-      pdf.setFont('helvetica', 'normal')
-      
-      // Fecha
+      // Minitabla con información de la solicitud
       const fechaFormateada = new Date(solicitudData.fecha).toLocaleDateString('es-DO', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       })
-      pdf.text(`Fecha: ${fechaFormateada}`, margin, yPos)
-      yPos += 7
+      const departamento = solicitudData.departamento || 'N/A'
+      const numeroSolicitud = solicitudData.numero_solicitud || 'N/A'
 
-      // Número de solicitud
+      const tableStartY = yPos
+      const headerHeight = 7
+      const tableWidth = contentWidth
+      const col1Width = tableWidth / 3
+      const col2Width = tableWidth / 3
+      const col3Width = tableWidth / 3
+
+      // Calcular altura de datos según el contenido más largo
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      const fechaLines = pdf.splitTextToSize(fechaFormateada, col1Width - 4)
+      const solicitudLines = pdf.splitTextToSize(numeroSolicitud, col2Width - 4)
+      const deptLines = pdf.splitTextToSize(departamento, col3Width - 4)
+      const maxDataLines = Math.max(fechaLines.length, solicitudLines.length, deptLines.length)
+      const dataRowHeight = Math.max(8, maxDataLines * 4 + 2)
+      const totalTableHeight = headerHeight + dataRowHeight
+
+      // Dibujar bordes de la tabla
+      pdf.setDrawColor(0, 0, 0)
+      pdf.setLineWidth(0.5)
+      
+      // Rectángulo exterior
+      pdf.rect(margin, tableStartY, tableWidth, totalTableHeight)
+      
+      // Línea horizontal entre encabezado y datos
+      pdf.line(margin, tableStartY + headerHeight, margin + tableWidth, tableStartY + headerHeight)
+      
+      // Líneas verticales divisorias
+      pdf.line(margin + col1Width, tableStartY, margin + col1Width, tableStartY + totalTableHeight)
+      pdf.line(margin + col1Width + col2Width, tableStartY, margin + col1Width + col2Width, tableStartY + totalTableHeight)
+
+      // Fondo del encabezado
+      pdf.setFillColor(240, 240, 240)
+      pdf.rect(margin, tableStartY, tableWidth, headerHeight, 'F')
+
+      // Texto del encabezado
       pdf.setFont('helvetica', 'bold')
-      pdf.text(`Número de Solicitud: ${solicitudData.numero_solicitud}`, margin, yPos)
-      yPos += 10
+      pdf.setFontSize(9)
+      pdf.text('Fecha', margin + col1Width / 2, tableStartY + 5, { align: 'center' })
+      pdf.text('Nº Solicitud', margin + col1Width + col2Width / 2, tableStartY + 5, { align: 'center' })
+      pdf.text('Departamento', margin + col1Width + col2Width + col3Width / 2, tableStartY + 5, { align: 'center' })
+
+      // Datos
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      const dataY = tableStartY + headerHeight + dataRowHeight / 2
+      pdf.text(fechaLines, margin + col1Width / 2, dataY, { align: 'center' })
+      pdf.text(solicitudLines, margin + col1Width + col2Width / 2, dataY, { align: 'center' })
+      pdf.text(deptLines, margin + col1Width + col2Width + col3Width / 2, dataY, { align: 'center' })
+
+      yPos = tableStartY + totalTableHeight + 10
 
       // Tabla de artículos
       pdf.setFont('helvetica', 'bold')
@@ -120,29 +163,32 @@ const SolicitudesDespachadas = () => {
       pdf.text('Artículos Despachados', margin, yPos)
       yPos += 8
 
-      // Encabezados de la tabla
-      pdf.setFontSize(10)
+      const articulos = solicitudData.articulos || []
+      const colArtWidth = contentWidth * 0.75
+      const colCantWidth = contentWidth * 0.25
+
+      // Encabezados de la tabla con bordes
       pdf.setFillColor(240, 240, 240)
       const headerHeight = 8
-      pdf.rect(margin, yPos - 5, contentWidth, headerHeight, 'F')
+      pdf.rect(margin, yPos - 5, colArtWidth, headerHeight, 'F')
+      pdf.rect(margin + colArtWidth, yPos - 5, colCantWidth, headerHeight, 'F')
+      
+      // Bordes del encabezado
+      pdf.setDrawColor(0, 0, 0)
+      pdf.setLineWidth(0.5)
+      pdf.rect(margin, yPos - 5, colArtWidth, headerHeight)
+      pdf.rect(margin + colArtWidth, yPos - 5, colCantWidth, headerHeight)
+      pdf.line(margin + colArtWidth, yPos - 5, margin + colArtWidth, yPos - 5 + headerHeight)
       
       pdf.setFont('helvetica', 'bold')
-      pdf.text('Departamento', margin + 2, yPos)
-      pdf.text('Artículo', margin + 60, yPos)
-      pdf.text('Cantidad', margin + 150, yPos)
+      pdf.setFontSize(10)
+      pdf.text('Artículo', margin + colArtWidth / 2, yPos, { align: 'center' })
+      pdf.text('Cantidad', margin + colArtWidth + colCantWidth / 2, yPos, { align: 'center' })
       yPos += headerHeight
 
-      // Línea separadora
-      pdf.setDrawColor(200, 200, 200)
-      pdf.line(margin, yPos, pageWidth - margin, yPos)
-      yPos += 5
-
-      // Datos de los artículos
+      // Datos de los artículos con bordes
       pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(9)
-      
-      const articulos = solicitudData.articulos || []
-      const departamento = solicitudData.departamento || 'N/A'
 
       articulos.forEach((articulo, index) => {
         // Verificar si necesitamos una nueva página
@@ -154,51 +200,41 @@ const SolicitudesDespachadas = () => {
         const nombreArticulo = articulo.articulo || articulo.nombre || articulo.codigo || 'N/A'
         const cantidad = articulo.cantidad || 0
 
-        let deptoLines = []
-        // Departamento (solo en la primera fila)
-        if (index === 0) {
-          deptoLines = pdf.splitTextToSize(departamento, 50)
-          pdf.text(deptoLines, margin + 2, yPos)
-        }
+        // Calcular altura de la fila según el texto
+        const articuloLines = pdf.splitTextToSize(nombreArticulo, colArtWidth - 4)
+        const rowHeight = Math.max(8, articuloLines.length * 4 + 2)
 
-        // Artículo
-        const articuloLines = pdf.splitTextToSize(nombreArticulo, 80)
-        pdf.text(articuloLines, margin + 60, yPos)
+        // Dibujar bordes de la fila
+        pdf.setDrawColor(0, 0, 0)
+        pdf.setLineWidth(0.3)
+        pdf.rect(margin, yPos - rowHeight / 2, colArtWidth, rowHeight)
+        pdf.rect(margin + colArtWidth, yPos - rowHeight / 2, colCantWidth, rowHeight)
+        pdf.line(margin + colArtWidth, yPos - rowHeight / 2, margin + colArtWidth, yPos - rowHeight / 2 + rowHeight)
 
-        // Cantidad
-        pdf.text(cantidad.toString(), margin + 150, yPos)
+        // Texto del artículo
+        pdf.text(articuloLines, margin + 2, yPos)
 
-        // Línea separadora entre filas
-        if (index < articulos.length - 1) {
-          pdf.setDrawColor(230, 230, 230)
-          pdf.line(margin, yPos + 3, pageWidth - margin, yPos + 3)
-        }
+        // Cantidad (centrada)
+        pdf.text(cantidad.toString(), margin + colArtWidth + colCantWidth / 2, yPos, { align: 'center' })
 
-        // Ajustar posición Y según la cantidad de líneas del artículo
-        const maxLines = Math.max(deptoLines.length || 1, articuloLines.length)
-        yPos += Math.max(8, maxLines * 4)
+        yPos += rowHeight
       })
 
-      // Espacio para firma al final
-      yPos = pageHeight - 50
+      // Espacio para firma al final (centralizado)
+      yPos = pageHeight - 40
+      
+      // Línea horizontal centralizada
+      const lineWidth = 60
+      const lineX = (pageWidth - lineWidth) / 2
       pdf.setDrawColor(0, 0, 0)
-      pdf.line(margin, yPos, pageWidth - margin, yPos)
+      pdf.setLineWidth(0.5)
+      pdf.line(lineX, yPos, lineX + lineWidth, yPos)
       yPos += 8
 
+      // Nombre del departamento centralizado
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(10)
-      pdf.text(`Departamento: ${departamento}`, margin, yPos)
-      yPos += 10
-
-      pdf.setFont('helvetica', 'normal')
-      pdf.setFontSize(9)
-      pdf.text('Firma y Sello:', margin, yPos)
-      yPos += 15
-
-      // Línea para firma
-      pdf.setDrawColor(150, 150, 150)
-      pdf.line(margin, yPos, margin + 80, yPos)
-      pdf.text('_________________________', margin, yPos + 5)
+      pdf.text(departamento, pageWidth / 2, yPos, { align: 'center' })
 
       // Abrir PDF en nueva pestaña
       const pdfBlob = pdf.output('blob')
