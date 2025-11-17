@@ -1020,11 +1020,11 @@ const SolicitudArticulos = () => {
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal({ isOpen: false, action: null, data: null })}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (confirmModal.action === 'delete') {
-            confirmDeleteSolicitud()
+            await confirmDeleteSolicitud()
           } else if (confirmModal.action === 'send') {
-            confirmEnviarSolicitud()
+            await confirmEnviarSolicitud()
           }
         }}
         title={confirmModal.action === 'delete' ? 'Eliminar Solicitud' : 'Enviar Solicitud'}
