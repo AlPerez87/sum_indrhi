@@ -251,7 +251,7 @@ const SolicitudesDespachadas = () => {
                 <div className="lg:col-span-8">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                     <Package className="w-5 h-5" />
-                    Artículos Despachados ({selectedSolicitud.total_articulos})
+                    Artículos Despachados ({selectedSolicitud.articulos.length})
                   </h4>
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                     <div className="max-h-96 overflow-y-auto custom-scrollbar">
