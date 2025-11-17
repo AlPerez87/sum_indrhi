@@ -29,6 +29,16 @@ const Panel = () => {
   const [recentActivity, setRecentActivity] = useState([])
   const user = authService.getCurrentUser()
 
+  // Verificar si el usuario puede ver todas las solicitudes (Encargado de Suministro o Suministro)
+  const canViewAllSolicitudes = () => {
+    if (!user) return false
+    const userRole = user.roles?.[0] || user.perfil || user.rol || ''
+    const roleLower = userRole.toLowerCase()
+    return roleLower === 'administrador' || 
+           roleLower === 'encargado de suministro' || 
+           roleLower === 'suministro'
+  }
+
   useEffect(() => {
     loadDashboardData(true)
     
@@ -55,6 +65,8 @@ const Panel = () => {
     }
     
     try {
+      const canViewAll = canViewAllSolicitudes()
+      
       // Cargar estadísticas en paralelo
       const [
         articulosRes,
@@ -76,31 +88,89 @@ const Panel = () => {
         crmService.getUsuariosDepartamentos()
       ])
 
-      // Calcular artículos con bajo stock (menos de 10 unidades)
+      // Calcular artículos con bajo stock (existencia < cantidad_minima)
       const articulosBajo = articulosRes.success 
-        ? articulosRes.data.filter(a => a.existencia < 10).length 
+        ? articulosRes.data.filter(a => {
+            const existencia = parseFloat(a.existencia || 0)
+            const minimo = parseFloat(a.cantidad_minima || 0)
+            return minimo > 0 && existencia < minimo
+          }).length 
         : 0
 
-      // Contar solicitudes pendientes (las que están en sum_autorizar_solicitudes)
-      const pendientes = pendientesRes.success ? pendientesRes.data.length : 0
+      // Filtrar solicitudes pendientes
+      const pendientes = solicitudesRes.success
+        ? solicitudesRes.data.filter(s => s.estado === 'borrador' || s.estado === 'pendiente').length
+        : 0
 
       setStats({
         totalArticulos: articulosRes.success ? articulosRes.data.length : 0,
         articulosBajoStock: articulosBajo,
         solicitudesPendientes: pendientes,
-        solicitudesAprobadas: approbadasRes.success ? approbadasRes.data.length : 0,
-        solicitudesGestionadas: gestionadasRes.success ? gestionadasRes.data.length : 0,
-        solicitudesDespachadas: despachadasRes.success ? despachadasRes.data.length : 0,
+        solicitudesAprobadas: solicitudesAprobadas,
+        solicitudesGestionadas: solicitudesGestionadas,
+        solicitudesDespachadas: solicitudesDespachadas,
         totalDepartamentos: deptosRes.success ? deptosRes.data.length : 0,
         totalUsuarios: usuariosRes.success ? usuariosRes.data.length : 0
       })
 
-      // Actividad reciente (últimas 5 solicitudes)
-      if (solicitudesRes.success) {
-        const recent = solicitudesRes.data
+      // Actividad reciente
+      // Para Encargado de Suministro y Suministro: combinar todas las solicitudes de todas las tablas
+      // Para otros usuarios: solo solicitudes de su departamento
+      if (canViewAll) {
+        // Combinar todas las solicitudes de todas las tablas
+        const allSolicitudes = []
+        
+        if (solicitudesRes.success) {
+          allSolicitudes.push(...solicitudesRes.data.map(s => ({
+            ...s,
+            tipo: 'pendiente'
+          })))
+        }
+        if (approbadasRes.success && approbadasRes.data) {
+          allSolicitudes.push(...approbadasRes.data.filter(s => s && s.id).map(s => ({
+            ...s,
+            tipo: 'aprobada',
+            estado: 'aprobada',
+            departamento: s.departamento || 'N/A',
+            total_articulos: s.total_articulos || 0
+          })))
+        }
+        if (gestionadasRes.success && gestionadasRes.data) {
+          allSolicitudes.push(...gestionadasRes.data.filter(s => s && s.id).map(s => ({
+            ...s,
+            tipo: 'gestionada',
+            estado: 'gestionada',
+            departamento: s.departamento || 'N/A',
+            total_articulos: s.total_articulos || 0
+          })))
+        }
+        if (despachadasRes.success && despachadasRes.data) {
+          allSolicitudes.push(...despachadasRes.data.filter(s => s && s.id).map(s => ({
+            ...s,
+            tipo: 'despachada',
+            estado: 'despachada',
+            departamento: s.departamento || 'N/A',
+            total_articulos: s.total_articulos || 0
+          })))
+        }
+        
+        // Ordenar por fecha y tomar las últimas 5
+        const recent = allSolicitudes
           .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
           .slice(0, 5)
         setRecentActivity(recent)
+      } else {
+        // Solo solicitudes del departamento del usuario
+        if (solicitudesRes.success) {
+          const recent = solicitudesRes.data
+            .map(s => ({
+              ...s,
+              tipo: s.enviada ? 'enviada' : 'pendiente'
+            }))
+            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+            .slice(0, 5)
+          setRecentActivity(recent)
+        }
       }
 
     } catch (error) {
@@ -250,11 +320,21 @@ const Panel = () => {
                 </div>
                 <div className="text-right">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    solicitud.estado === 'enviado' 
+                    solicitud.tipo === 'despachada' 
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                      : solicitud.tipo === 'gestionada'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      : solicitud.tipo === 'aprobada'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : solicitud.estado === 'enviado' 
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                       : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                   }`}>
-                    {solicitud.estado}
+                    {solicitud.tipo === 'pendiente' ? 'Pendiente' :
+                     solicitud.tipo === 'aprobada' ? 'Aprobada' :
+                     solicitud.tipo === 'gestionada' ? 'En Gestión' :
+                     solicitud.tipo === 'despachada' ? 'Despachada' :
+                     solicitud.estado === 'enviado' ? 'Enviada' : 'Borrador'}
                   </span>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {new Date(solicitud.fecha).toLocaleDateString('es-DO')}
@@ -280,7 +360,7 @@ const Panel = () => {
                 ⚠️ Atención: Artículos con Stock Bajo
               </h3>
               <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                Hay {stats.articulosBajoStock} artículo(s) con menos de 10 unidades en existencia. 
+                Hay {stats.articulosBajoStock} artículo(s) con existencia por debajo de su cantidad mínima. 
                 Considera realizar una entrada de mercancía pronto.
               </p>
             </div>

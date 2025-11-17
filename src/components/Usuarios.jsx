@@ -1,23 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Users, Search, RefreshCw, AlertCircle, Edit, Key, X, Check } from 'lucide-react'
+import { Users, Search, RefreshCw, AlertCircle, Edit, Key, Check } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
-import SearchableSelect from './SearchableSelect'
+import EditarUsuarioModal from './EditarUsuarioModal'
+import CambiarPasswordAdminModal from './CambiarPasswordAdminModal'
 
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([])
-  const [departamentos, setDepartamentos] = useState([])
-  const [roles, setRoles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [editingUser, setEditingUser] = useState(null)
-  const [editingRol, setEditingRol] = useState(null)
-  const [changingPassword, setChangingPassword] = useState(null)
-  const [newPassword, setNewPassword] = useState('')
-  const [selectedDepartamento, setSelectedDepartamento] = useState('')
-  const [selectedRol, setSelectedRol] = useState('')
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [selectedUsuario, setSelectedUsuario] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => {
@@ -28,11 +24,7 @@ const Usuarios = () => {
     setLoading(true)
     setError('')
     
-    const [usuariosResult, deptosResult, rolesResult] = await Promise.all([
-      crmService.getUsuariosDepartamentos(),
-      crmService.getDepartamentos(1, 10000, ''), // Obtener todos los departamentos
-      crmService.getRoles() // Obtener todos los roles
-    ])
+    const usuariosResult = await crmService.getUsuariosDepartamentos()
     
     if (usuariosResult.success) {
       setUsuarios(usuariosResult.data)
@@ -40,86 +32,23 @@ const Usuarios = () => {
       setError(usuariosResult.message || 'Error al cargar los usuarios')
     }
     
-    if (deptosResult.success) {
-      setDepartamentos(deptosResult.data)
-    }
-    
-    if (rolesResult.success) {
-      setRoles(rolesResult.data)
-    }
-    
     setLoading(false)
   }
 
-  const handleEditDepartamento = (usuario) => {
-    setEditingUser(usuario.id)
-    setSelectedDepartamento(usuario.departamento_id || '')
-  }
-
-  const handleSaveDepartamento = async (id) => {
-    const result = await crmService.updateUsuarioDepartamento(
-      id,
-      selectedDepartamento === '' ? null : parseInt(selectedDepartamento)
-    )
-    
-    if (result.success) {
-      setSuccessMessage('Departamento actualizado correctamente')
-      setTimeout(() => setSuccessMessage(''), 3000)
-      fetchData()
-      setEditingUser(null)
-      setSelectedDepartamento('')
-    } else {
-      setError(result.message)
-      setTimeout(() => setError(''), 3000)
-    }
-  }
-
-  const handleEditRol = (usuario) => {
-    setEditingRol(usuario.id)
-    setSelectedRol(usuario.rol_id || '')
-  }
-
-  const handleSaveRol = async (id) => {
-    const result = await crmService.updateUsuarioRol(
-      id,
-      selectedRol === '' ? null : parseInt(selectedRol)
-    )
-    
-    if (result.success) {
-      setSuccessMessage('Rol actualizado correctamente')
-      setTimeout(() => setSuccessMessage(''), 3000)
-      fetchData()
-      setEditingRol(null)
-      setSelectedRol('')
-    } else {
-      setError(result.message)
-      setTimeout(() => setError(''), 3000)
-    }
+  const handleEditUsuario = (usuario) => {
+    setSelectedUsuario(usuario)
+    setShowEditModal(true)
   }
 
   const handleChangePassword = (usuario) => {
-    setChangingPassword(usuario.id)
-    setNewPassword('')
+    setSelectedUsuario(usuario)
+    setShowPasswordModal(true)
   }
 
-  const handleSavePassword = async (id) => {
-    if (newPassword.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres')
-      setTimeout(() => setError(''), 3000)
-      return
-    }
-
-    const result = await crmService.updateUsuarioPassword(id, newPassword)
-    
-    if (result.success) {
-      setSuccessMessage('Contraseña actualizada correctamente')
-      setTimeout(() => setSuccessMessage(''), 3000)
-      setChangingPassword(null)
-      setNewPassword('')
-    } else {
-      setError(result.message)
-      setTimeout(() => setError(''), 3000)
-    }
+  const handleEditSuccess = () => {
+    setSuccessMessage('Usuario actualizado correctamente')
+    setTimeout(() => setSuccessMessage(''), 3000)
+    fetchData()
   }
 
   const filteredUsuarios = usuarios.filter(usuario =>
@@ -258,158 +187,36 @@ const Usuarios = () => {
                       {usuario.email}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {editingRol === usuario.id ? (
-                        <div className="flex items-center gap-2">
-                          <div className="min-w-[200px]">
-                            <SearchableSelect
-                              options={[
-                                { value: '', label: 'Sin asignar' },
-                                ...roles.map((rol) => ({
-                                  value: String(rol.id),
-                                  label: rol.nombre
-                                }))
-                              ]}
-                              value={String(selectedRol)}
-                              onChange={(value) => {
-                                console.log('Rol seleccionado:', value)
-                                setSelectedRol(value)
-                              }}
-                              placeholder="Seleccionar rol"
-                              searchPlaceholder="Buscar rol..."
-                              className="py-1 text-sm"
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleSaveRol(usuario.id)}
-                            className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
-                            title="Guardar"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingRol(null)
-                              setSelectedRol('')
-                            }}
-                            className="p-1 text-red-600 hover:text-red-700 dark:text-red-400"
-                            title="Cancelar"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
+                      {usuario.sum_roles?.nombre ? (
+                        <span className="badge-info">
+                          {usuario.sum_roles.nombre}
+                        </span>
                       ) : (
-                        usuario.sum_roles?.nombre ? (
-                          <span className="badge-info">
-                            {usuario.sum_roles.nombre}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500 italic">Sin asignar</span>
-                        )
+                        <span className="text-gray-400 dark:text-gray-500 italic">Sin asignar</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {editingUser === usuario.id ? (
-                        <div className="flex items-center gap-2">
-                          <div className="min-w-[200px]">
-                            <SearchableSelect
-                              options={[
-                                { value: '', label: 'Sin asignar' },
-                                ...departamentos.map((depto) => ({
-                                  value: String(depto.id || depto.codigo),
-                                  label: depto.departamento
-                                }))
-                              ]}
-                              value={String(selectedDepartamento)}
-                              onChange={(value) => {
-                                console.log('Departamento seleccionado:', value)
-                                setSelectedDepartamento(value)
-                              }}
-                              placeholder="Seleccionar departamento"
-                              searchPlaceholder="Buscar departamento..."
-                              className="py-1 text-sm"
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleSaveDepartamento(usuario.id)}
-                            className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
-                            title="Guardar"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingUser(null)
-                              setSelectedDepartamento('')
-                            }}
-                            className="p-1 text-red-600 hover:text-red-700 dark:text-red-400"
-                            title="Cancelar"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        usuario.sum_departamentos?.departamento || (
-                          <span className="text-gray-400 dark:text-gray-500 italic">Sin asignar</span>
-                        )
+                      {usuario.sum_departamentos?.departamento || (
+                        <span className="text-gray-400 dark:text-gray-500 italic">Sin asignar</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {changingPassword === usuario.id ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Nueva contraseña"
-                            className="input-field py-1 text-sm w-40"
-                            minLength="6"
-                          />
-                          <button
-                            onClick={() => handleSavePassword(usuario.id)}
-                            className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
-                            title="Guardar"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setChangingPassword(null)
-                              setNewPassword('')
-                            }}
-                            className="p-1 text-red-600 hover:text-red-700 dark:text-red-400"
-                            title="Cancelar"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleEditRol(usuario)}
-                            className="p-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                            title="Editar rol"
-                            disabled={editingRol !== null || editingUser !== null}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEditDepartamento(usuario)}
-                            className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="Editar departamento"
-                            disabled={editingUser !== null || editingRol !== null}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleChangePassword(usuario)}
-                            className="p-2 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                            title="Cambiar contraseña"
-                            disabled={changingPassword !== null || editingUser !== null || editingRol !== null}
-                          >
-                            <Key className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleEditUsuario(usuario)}
+                          className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                          title="Editar usuario"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleChangePassword(usuario)}
+                          className="p-2 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                          title="Cambiar contraseña"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -431,6 +238,33 @@ const Usuarios = () => {
           />
         )}
       </div>
+
+      {/* Modales */}
+      {showEditModal && selectedUsuario && (
+        <EditarUsuarioModal
+          usuario={selectedUsuario}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedUsuario(null)
+          }}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
+      {showPasswordModal && selectedUsuario && (
+        <CambiarPasswordAdminModal
+          usuario={selectedUsuario}
+          onClose={() => {
+            setShowPasswordModal(false)
+            setSelectedUsuario(null)
+          }}
+          onSuccess={() => {
+            setSuccessMessage('Contraseña actualizada correctamente')
+            setTimeout(() => setSuccessMessage(''), 3000)
+            fetchData()
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, X, Trash2, AlertCircle, Package } from 'lucide-react'
+import { Search, Plus, Eye, X, Trash2, AlertCircle, Package, Check } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import { getUnidadLabel } from '../constants/unidades'
 import Pagination from './Pagination'
@@ -29,6 +29,7 @@ const EntradaMercancia = () => {
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   // Cargar entradas y artículos
   useEffect(() => {
@@ -241,8 +242,9 @@ const EntradaMercancia = () => {
           unidad: 'UNIDAD'
         })
         setError('')
+        setSuccessMessage('Entrada de mercancía creada correctamente')
+        setTimeout(() => setSuccessMessage(''), 3000)
         await loadData()
-        alert('Entrada de mercancía creada correctamente')
       } else {
         setError(result.message || 'Error al crear la entrada')
       }
@@ -305,6 +307,21 @@ const EntradaMercancia = () => {
           Nueva Entrada
         </button>
       </div>
+
+      {/* Messages */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg animate-shake">
+          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+          <p className="text-red-800 dark:text-red-300">{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg animate-fade-in">
+          <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <p className="text-green-800 dark:text-green-300">{successMessage}</p>
+        </div>
+      )}
 
       {/* Buscador */}
       <div className="card p-4">
@@ -696,7 +713,7 @@ const EntradaMercancia = () => {
                 <div className="lg:col-span-8">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                     <Package className="w-5 h-5" />
-                    Artículos Ingresados ({selectedEntrada.total_articulos})
+                    Artículos Ingresados ({selectedEntrada.articulos.length})
                   </h4>
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                     <div className="max-h-96 overflow-y-auto custom-scrollbar">
@@ -715,19 +732,27 @@ const EntradaMercancia = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {selectedEntrada.articulos && selectedEntrada.articulos.map((art, index) => (
-                            <tr key={`art-detalle-${art.articulo}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                {art.articulo}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
-                                {art.cantidad}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
-                                {getUnidadLabel(art.unidad)}
+                          {selectedEntrada.articulos && selectedEntrada.articulos.length > 0 ? (
+                            selectedEntrada.articulos.map((art, index) => (
+                              <tr key={`art-detalle-${art.articulo || art.codigo}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                  {art.nombre || art.articulo || art.codigo || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
+                                  {art.cantidad || 0}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
+                                  {getUnidadLabel(art.unidad)}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                                No hay artículos registrados
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>

@@ -114,6 +114,15 @@ export const crmService = {
 
   updateArticulo: async (id, articulo) => {
     try {
+      // Validar que la unidad sea válida
+      const unidadesValidas = ['UNIDAD', 'RESMA', 'BLOCKS O TALONARIO', 'PAQUETE', 'GALON', 'YARDA', 'LIBRA', 'CAJA']
+      if (articulo.unidad && !unidadesValidas.includes(articulo.unidad)) {
+        return {
+          success: false,
+          message: `La unidad "${articulo.unidad}" no es válida. Unidades permitidas: ${unidadesValidas.join(', ')}`
+        }
+      }
+
       const { data, error } = await supabase
         .from('sum_articulos')
         .update(articulo)
@@ -121,7 +130,22 @@ export const crmService = {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        // Manejar errores específicos
+        if (error.code === '23505') {
+          return {
+            success: false,
+            message: 'Ya existe un artículo con este código'
+          }
+        }
+        if (error.code === '23514') {
+          return {
+            success: false,
+            message: 'El valor de la unidad no es válido. Unidades permitidas: UNIDAD, RESMA, BLOCKS O TALONARIO, PAQUETE, GALON, YARDA, LIBRA, CAJA'
+          }
+        }
+        throw error
+      }
 
       return {
         success: true,
@@ -548,6 +572,32 @@ export const crmService = {
 
       if (error) throw error
 
+      // Parsear articulos_cantidades_unidades
+      if (data.articulos_cantidades_unidades) {
+        try {
+          let articulosParsed = null
+          if (typeof data.articulos_cantidades_unidades === 'string') {
+            articulosParsed = JSON.parse(data.articulos_cantidades_unidades)
+          } else {
+            articulosParsed = data.articulos_cantidades_unidades
+          }
+          
+          // Crear propiedad articulos con el formato esperado por el componente
+          data.articulos = articulosParsed.map(art => ({
+            codigo: art.codigo || art.articulo || '',
+            articulo: art.codigo || art.articulo || '',
+            nombre: art.nombre || art.descripcion || art.codigo || art.articulo || '',
+            cantidad: art.cantidad || 0,
+            unidad: art.unidad || 'UNIDAD'
+          }))
+        } catch (parseError) {
+          console.error('Error al parsear articulos_cantidades_unidades:', parseError)
+          data.articulos = []
+        }
+      } else {
+        data.articulos = []
+      }
+
       return {
         success: true,
         data
@@ -667,12 +717,12 @@ export const crmService = {
         }
       }
 
-      // Verificar si el usuario es Administrador
-      const isAdmin = user && (
-        user.roles?.some(r => r.toLowerCase() === 'administrador') ||
-        user.perfil?.toLowerCase() === 'administrador' ||
-        user.rol?.toLowerCase() === 'administrador'
-      )
+      // Verificar si el usuario puede ver todas las solicitudes
+      const userRole = user?.roles?.[0] || user?.perfil || user?.rol || ''
+      const roleLower = userRole.toLowerCase()
+      const canViewAll = roleLower === 'administrador' || 
+                         roleLower === 'encargado de suministro' || 
+                         roleLower === 'suministro'
 
       let query = supabase
         .from('sum_solicitudes')
@@ -686,8 +736,8 @@ export const crmService = {
         `, { count: 'exact' })
         .order('id', { ascending: false })
 
-      // Si no es Administrador, filtrar por usuario_id o departamento_id
-      if (!isAdmin && userId) {
+      // Si no puede ver todas las solicitudes, filtrar por usuario_id o departamento_id
+      if (!canViewAll && userId) {
         // Obtener el departamento_id del usuario si está disponible
         if (user?.departamento_id) {
           query = query.eq('departamento_id', user.departamento_id)

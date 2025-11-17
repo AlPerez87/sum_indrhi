@@ -51,6 +51,16 @@ const Dashboard = ({ onLogout, children }) => {
   const { theme, toggleTheme } = useTheme()
   const user = authService.getCurrentUser()
 
+  // Verificar si el usuario puede ver notificaciones
+  const canViewNotifications = () => {
+    if (!user) return false
+    const userRole = user.roles?.[0] || user.perfil || user.rol || ''
+    const roleLower = userRole.toLowerCase()
+    return roleLower === 'administrador' || 
+           roleLower === 'encargado de suministro' || 
+           roleLower === 'suministro'
+  }
+
   // Cerrar menús al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -66,8 +76,10 @@ const Dashboard = ({ onLogout, children }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Cargar notificaciones de solicitudes aprobadas
+  // Cargar notificaciones de solicitudes aprobadas (solo si el usuario puede verlas)
   useEffect(() => {
+    if (!canViewNotifications()) return
+
     const loadNotifications = async () => {
       try {
         const result = await crmService.getSolicitudesAprobadas()
@@ -107,7 +119,7 @@ const Dashboard = ({ onLogout, children }) => {
     // Verificar cada 30 segundos
     const interval = setInterval(loadNotifications, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
 
   const toggleSubmenu = (key) => {
     // Si el sidebar está colapsado, no permitir abrir submenús
@@ -333,20 +345,21 @@ const Dashboard = ({ onLogout, children }) => {
               )}
             </button>
 
-            {/* Notificaciones */}
-            <div className="relative" ref={notificationsRef}>
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                aria-label="Notificaciones"
-              >
-                <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+            {/* Notificaciones - Solo para Administrador, Encargado de Suministro y Suministro */}
+            {canViewNotifications() && (
+              <div className="relative" ref={notificationsRef}>
+                <button
+                  onClick={() => setNotificationsOpen(!notificationsOpen)}
+                  className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  aria-label="Notificaciones"
+                >
+                  <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
 
               {/* Dropdown Notificaciones */}
               {notificationsOpen && (
@@ -412,7 +425,8 @@ const Dashboard = ({ onLogout, children }) => {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>
@@ -422,7 +436,7 @@ const Dashboard = ({ onLogout, children }) => {
                 aria-label="Menú de usuario"
               >
                 <span className="text-white font-semibold text-sm">
-                  {user?.display_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                  {(user?.nombre_completo || user?.display_name || user?.username)?.charAt(0)?.toUpperCase() || 'U'}
                 </span>
               </button>
 
@@ -432,7 +446,7 @@ const Dashboard = ({ onLogout, children }) => {
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {user?.display_name || user?.username}
+                      {user?.nombre_completo || user?.display_name || user?.username}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words">
                       {user?.email}
