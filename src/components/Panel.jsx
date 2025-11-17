@@ -27,19 +27,23 @@ const Panel = () => {
   })
   const [loading, setLoading] = useState(true)
   const [recentActivity, setRecentActivity] = useState([])
-  const user = authService.getCurrentUser()
+  const [user, setUser] = useState(authService.getCurrentUser())
 
   // Verificar si el usuario puede ver todas las solicitudes (Encargado de Suministro o Suministro)
   const canViewAllSolicitudes = () => {
     if (!user) return false
     const userRole = user.roles?.[0] || user.perfil || user.rol || ''
-    const roleLower = userRole.toLowerCase()
+    const roleLower = userRole.toLowerCase().trim()
     return roleLower === 'administrador' || 
            roleLower === 'encargado de suministro' || 
            roleLower === 'suministro'
   }
 
   useEffect(() => {
+    // Actualizar usuario al montar el componente
+    const currentUser = authService.getCurrentUser()
+    setUser(currentUser)
+    
     loadDashboardData(true)
     
     // Actualizar datos cada 30 segundos
@@ -57,6 +61,7 @@ const Panel = () => {
       clearInterval(interval)
       window.removeEventListener('focus', handleFocus)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadDashboardData = async (showLoading = true) => {
@@ -65,7 +70,19 @@ const Panel = () => {
     }
     
     try {
-      const canViewAll = canViewAllSolicitudes()
+      // Obtener usuario actualizado en cada carga
+      const currentUser = authService.getCurrentUser()
+      if (currentUser) {
+        setUser(currentUser)
+      }
+      
+      // Usar el usuario actualizado para verificar permisos
+      const userToCheck = currentUser || user
+      const userRole = userToCheck?.roles?.[0] || userToCheck?.perfil || userToCheck?.rol || ''
+      const roleLower = userRole.toLowerCase().trim()
+      const canViewAll = roleLower === 'administrador' || 
+                         roleLower === 'encargado de suministro' || 
+                         roleLower === 'suministro'
       
       // Cargar estadísticas en paralelo
       const [
@@ -118,57 +135,227 @@ const Panel = () => {
         // Combinar todas las solicitudes de todas las tablas
         const allSolicitudes = []
         
-        if (solicitudesRes.success) {
-          allSolicitudes.push(...solicitudesRes.data.map(s => ({
-            ...s,
-            tipo: 'pendiente'
-          })))
-        }
-        if (approbadasRes.success && approbadasRes.data) {
-          allSolicitudes.push(...approbadasRes.data.filter(s => s && s.id).map(s => ({
-            ...s,
-            tipo: 'aprobada',
-            estado: 'aprobada',
-            departamento: s.departamento || 'N/A',
-            total_articulos: s.total_articulos || 0
-          })))
-        }
-        if (gestionadasRes.success && gestionadasRes.data) {
-          allSolicitudes.push(...gestionadasRes.data.filter(s => s && s.id).map(s => ({
-            ...s,
-            tipo: 'gestionada',
-            estado: 'gestionada',
-            departamento: s.departamento || 'N/A',
-            total_articulos: s.total_articulos || 0
-          })))
-        }
-        if (despachadasRes.success && despachadasRes.data) {
-          allSolicitudes.push(...despachadasRes.data.filter(s => s && s.id).map(s => ({
-            ...s,
-            tipo: 'despachada',
-            estado: 'despachada',
-            departamento: s.departamento || 'N/A',
-            total_articulos: s.total_articulos || 0
-          })))
+        // Prioridad de estados: despachada > gestionada > aprobada > pendiente > borrador
+        const estadoPrioridad = {
+          'despachada': 4,
+          'gestionada': 3,
+          'aprobada': 2,
+          'pendiente': 1,
+          'enviada': 1,
+          'borrador': 0
         }
         
-        // Ordenar por fecha y tomar las últimas 5
-        const recent = allSolicitudes
-          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        // Agregar solicitudes pendientes de autorización
+        if (pendientesRes.success && pendientesRes.data) {
+          pendientesRes.data.forEach(s => {
+            if (s && s.numero_solicitud) {
+              allSolicitudes.push({
+                ...s,
+                tipo: 'pendiente',
+                estado: 'pendiente',
+                numero_solicitud: s.numero_solicitud,
+                departamento: s.departamento || 'N/A',
+                total_articulos: s.total_articulos || 0,
+                fecha: s.fecha || new Date().toISOString().split('T')[0],
+                id: `pendiente-${s.numero_solicitud}`
+              })
+            }
+          })
+        }
+        
+        // Agregar solicitudes aprobadas
+        if (approbadasRes.success && approbadasRes.data) {
+          approbadasRes.data.forEach(s => {
+            if (s && s.numero_solicitud) {
+              allSolicitudes.push({
+                ...s,
+                tipo: 'aprobada',
+                estado: 'aprobada',
+                numero_solicitud: s.numero_solicitud,
+                departamento: s.departamento || 'N/A',
+                total_articulos: s.total_articulos || 0,
+                fecha: s.fecha || new Date().toISOString().split('T')[0],
+                id: `aprobada-${s.numero_solicitud}`
+              })
+            }
+          })
+        }
+        
+        // Agregar solicitudes gestionadas
+        if (gestionadasRes.success && gestionadasRes.data) {
+          gestionadasRes.data.forEach(s => {
+            if (s && s.numero_solicitud) {
+              allSolicitudes.push({
+                ...s,
+                tipo: 'gestionada',
+                estado: 'gestionada',
+                numero_solicitud: s.numero_solicitud,
+                departamento: s.departamento || 'N/A',
+                total_articulos: s.total_articulos || 0,
+                fecha: s.fecha || new Date().toISOString().split('T')[0],
+                id: `gestionada-${s.numero_solicitud}`
+              })
+            }
+          })
+        }
+        
+        // Agregar solicitudes despachadas
+        if (despachadasRes.success && despachadasRes.data) {
+          despachadasRes.data.forEach(s => {
+            if (s && s.numero_solicitud) {
+              allSolicitudes.push({
+                ...s,
+                tipo: 'despachada',
+                estado: 'despachada',
+                numero_solicitud: s.numero_solicitud,
+                departamento: s.departamento || 'N/A',
+                total_articulos: s.total_articulos || 0,
+                fecha: s.fecha || new Date().toISOString().split('T')[0],
+                id: `despachada-${s.numero_solicitud}`
+              })
+            }
+          })
+        }
+        
+        // Agrupar por numero_solicitud y mantener solo el estado más reciente
+        const solicitudesPorNumero = {}
+        allSolicitudes.forEach(solicitud => {
+          const numero = solicitud.numero_solicitud
+          if (!numero) return
+          
+          if (!solicitudesPorNumero[numero]) {
+            solicitudesPorNumero[numero] = solicitud
+          } else {
+            // Si ya existe, mantener el que tiene mayor prioridad de estado
+            const prioridadActual = estadoPrioridad[solicitudesPorNumero[numero].tipo] || 0
+            const prioridadNueva = estadoPrioridad[solicitud.tipo] || 0
+            
+            if (prioridadNueva > prioridadActual) {
+              solicitudesPorNumero[numero] = solicitud
+            } else if (prioridadNueva === prioridadActual) {
+              // Si tienen la misma prioridad, mantener el más reciente por fecha
+              const fechaActual = new Date(solicitudesPorNumero[numero].fecha)
+              const fechaNueva = new Date(solicitud.fecha)
+              if (fechaNueva > fechaActual) {
+                solicitudesPorNumero[numero] = solicitud
+              }
+            }
+          }
+        })
+        
+        // Convertir a array, ordenar por fecha y tomar las últimas 5
+        const recent = Object.values(solicitudesPorNumero)
+          .sort((a, b) => {
+            const fechaA = new Date(a.fecha)
+            const fechaB = new Date(b.fecha)
+            return fechaB - fechaA
+          })
           .slice(0, 5)
+        
         setRecentActivity(recent)
       } else {
         // Solo solicitudes del departamento del usuario
-        if (solicitudesRes.success) {
-          const recent = solicitudesRes.data
-            .map(s => ({
-              ...s,
-              tipo: s.enviada ? 'enviada' : 'pendiente'
-            }))
-            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
-            .slice(0, 5)
-          setRecentActivity(recent)
+        const userSolicitudes = []
+        
+        if (solicitudesRes.success && solicitudesRes.data) {
+          solicitudesRes.data.forEach(s => {
+            if (s && s.numero_solicitud) {
+              userSolicitudes.push({
+                ...s,
+                tipo: s.enviada ? 'enviada' : 'pendiente',
+                estado: s.enviada ? 'enviada' : 'pendiente',
+                numero_solicitud: s.numero_solicitud,
+                total_articulos: s.total_articulos || 0
+              })
+            }
+          })
         }
+        
+        // También incluir solicitudes aprobadas, gestionadas y despachadas del departamento del usuario
+        if (approbadasRes.success && approbadasRes.data && user?.departamento) {
+          approbadasRes.data.forEach(s => {
+            if (s && s.numero_solicitud && s.departamento === user.departamento) {
+              userSolicitudes.push({
+                ...s,
+                tipo: 'aprobada',
+                estado: 'aprobada',
+                numero_solicitud: s.numero_solicitud,
+                total_articulos: s.total_articulos || 0
+              })
+            }
+          })
+        }
+        
+        if (gestionadasRes.success && gestionadasRes.data && user?.departamento) {
+          gestionadasRes.data.forEach(s => {
+            if (s && s.numero_solicitud && s.departamento === user.departamento) {
+              userSolicitudes.push({
+                ...s,
+                tipo: 'gestionada',
+                estado: 'gestionada',
+                numero_solicitud: s.numero_solicitud,
+                total_articulos: s.total_articulos || 0
+              })
+            }
+          })
+        }
+        
+        if (despachadasRes.success && despachadasRes.data && user?.departamento) {
+          despachadasRes.data.forEach(s => {
+            if (s && s.numero_solicitud && s.departamento === user.departamento) {
+              userSolicitudes.push({
+                ...s,
+                tipo: 'despachada',
+                estado: 'despachada',
+                numero_solicitud: s.numero_solicitud,
+                total_articulos: s.total_articulos || 0
+              })
+            }
+          })
+        }
+        
+        // Agrupar por numero_solicitud y mantener solo el estado más reciente
+        const estadoPrioridad = {
+          'despachada': 4,
+          'gestionada': 3,
+          'aprobada': 2,
+          'pendiente': 1,
+          'enviada': 1,
+          'borrador': 0
+        }
+        
+        const solicitudesPorNumero = {}
+        userSolicitudes.forEach(solicitud => {
+          const numero = solicitud.numero_solicitud
+          if (!numero) return
+          
+          if (!solicitudesPorNumero[numero]) {
+            solicitudesPorNumero[numero] = solicitud
+          } else {
+            const prioridadActual = estadoPrioridad[solicitudesPorNumero[numero].tipo] || 0
+            const prioridadNueva = estadoPrioridad[solicitud.tipo] || 0
+            
+            if (prioridadNueva > prioridadActual) {
+              solicitudesPorNumero[numero] = solicitud
+            } else if (prioridadNueva === prioridadActual) {
+              const fechaActual = new Date(solicitudesPorNumero[numero].fecha)
+              const fechaNueva = new Date(solicitud.fecha)
+              if (fechaNueva > fechaActual) {
+                solicitudesPorNumero[numero] = solicitud
+              }
+            }
+          }
+        })
+        
+        const recent = Object.values(solicitudesPorNumero)
+          .sort((a, b) => {
+            const fechaA = new Date(a.fecha)
+            const fechaB = new Date(b.fecha)
+            return fechaB - fechaA
+          })
+          .slice(0, 5)
+        
+        setRecentActivity(recent)
       }
 
     } catch (error) {
@@ -304,9 +491,9 @@ const Panel = () => {
         </h2>
         {recentActivity.length > 0 ? (
           <div className="space-y-3">
-            {recentActivity.map((solicitud) => (
+            {recentActivity.map((solicitud, index) => (
               <div 
-                key={solicitud.id}
+                key={solicitud.id || `${solicitud.numero_solicitud}-${solicitud.tipo}-${index}`}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
                 <div className="flex items-center gap-3">
