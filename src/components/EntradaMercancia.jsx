@@ -25,6 +25,7 @@ const EntradaMercancia = () => {
     fecha: '',
     suplidor: ''
   })
+  const [formatoOrden, setFormatoOrden] = useState('CD') // 'CD' o 'CM'
   const [articulosSeleccionados, setArticulosSeleccionados] = useState([])
   const [articuloActual, setArticuloActual] = useState({
     articulo: '',
@@ -131,6 +132,9 @@ const EntradaMercancia = () => {
       if (result.success) {
         setIsEditing(false)
         setEditingEntradaId(null)
+        // Detectar formato del número de orden (CD o CM)
+        const formatoDetectado = result.data.numero_orden.includes('-CM-') ? 'CM' : 'CD'
+        setFormatoOrden(formatoDetectado)
         setFormData({
           numero_entrada: result.data.numero_entrada,
           numero_orden: result.data.numero_orden,
@@ -158,6 +162,9 @@ const EntradaMercancia = () => {
       if (result.success) {
         setIsEditing(true)
         setEditingEntradaId(entrada.id)
+        // Detectar formato del número de orden (CD o CM)
+        const formatoDetectado = result.data.numero_orden.includes('-CM-') ? 'CM' : 'CD'
+        setFormatoOrden(formatoDetectado)
         setFormData({
           numero_entrada: result.data.numero_entrada,
           numero_orden: result.data.numero_orden,
@@ -260,13 +267,27 @@ const EntradaMercancia = () => {
     setArticulosSeleccionados(articulosSeleccionados.filter((_, i) => i !== index))
   }
 
+  // Cambiar formato de orden
+  const handleFormatoOrdenChange = (nuevoFormato) => {
+    setFormatoOrden(nuevoFormato)
+    // Mantener el número final y actualizar el formato
+    const numeroFinal = formData.numero_orden.slice(-4) || '0001'
+    const anioActual = new Date().getFullYear()
+    const prefix = `INDRHI-DAF-${nuevoFormato}-${anioActual}-`
+    
+    setFormData({
+      ...formData,
+      numero_orden: prefix + numeroFinal.padStart(4, '0')
+    })
+  }
+
   // Editar número de orden (solo los últimos 4 dígitos)
   const handleNumeroOrdenChange = (value) => {
     const anioActual = new Date().getFullYear()
-    const prefix = `INDRHI-DAF-CD-${anioActual}-`
+    const prefix = `INDRHI-DAF-${formatoOrden}-${anioActual}-`
     
     // Extraer solo los dígitos finales
-    let numero = value.replace(prefix, '')
+    let numero = value.replace(/INDRHI-DAF-(CD|CM)-\d{4}-/, '')
     numero = numero.replace(/\D/g, '').slice(0, 4)
     
     setFormData({
@@ -315,6 +336,7 @@ const EntradaMercancia = () => {
         setShowModal(false)
         setIsEditing(false)
         setEditingEntradaId(null)
+        setFormatoOrden('CD') // Resetear formato
         setFormData({
           numero_entrada: '',
           numero_orden: '',
@@ -539,6 +561,7 @@ const EntradaMercancia = () => {
                   setShowModal(false)
                   setIsEditing(false)
                   setEditingEntradaId(null)
+                  setFormatoOrden('CD') // Resetear formato al cerrar
                 }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
@@ -582,6 +605,38 @@ const EntradaMercancia = () => {
                         (Últimos 4 dígitos editables)
                       </span>
                     </label>
+                    {/* Selector de formato */}
+                    <div className="mb-3">
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="formatoOrden"
+                            value="CD"
+                            checked={formatoOrden === 'CD'}
+                            onChange={(e) => handleFormatoOrdenChange(e.target.value)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 font-mono">
+                            INDRHI-DAF-CD-{new Date().getFullYear()}-XXXX
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="formatoOrden"
+                            value="CM"
+                            checked={formatoOrden === 'CM'}
+                            onChange={(e) => handleFormatoOrdenChange(e.target.value)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 font-mono">
+                            INDRHI-DAF-CM-{new Date().getFullYear()}-XXXX
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                    {/* Input del número */}
                     <div className="flex items-center gap-2">
                       <span className="text-gray-700 dark:text-gray-300 font-mono text-sm">
                         {formData.numero_orden.substring(0, formData.numero_orden.length - 4)}
@@ -589,7 +644,10 @@ const EntradaMercancia = () => {
                       <input
                         type="text"
                         value={formData.numero_orden.slice(-4)}
-                        onChange={(e) => handleNumeroOrdenChange(`INDRHI-DAF-CD-${new Date().getFullYear()}-${e.target.value}`)}
+                        onChange={(e) => {
+                          const anioActual = new Date().getFullYear()
+                          handleNumeroOrdenChange(`INDRHI-DAF-${formatoOrden}-${anioActual}-${e.target.value}`)
+                        }}
                         maxLength={4}
                         className="input-field w-24 font-mono"
                         placeholder="0001"
@@ -753,6 +811,7 @@ const EntradaMercancia = () => {
                   setShowModal(false)
                   setIsEditing(false)
                   setEditingEntradaId(null)
+                  setFormatoOrden('CD') // Resetear formato al cancelar
                 }}
                 className="btn-secondary"
                 disabled={saving}
