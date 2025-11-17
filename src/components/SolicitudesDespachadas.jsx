@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Search, Eye, X, Package, Truck } from 'lucide-react'
+import { Search, Eye, X, Package, Truck, Printer } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
+import jsPDF from 'jspdf'
 
 const SolicitudesDespachadas = () => {
   const [solicitudes, setSolicitudes] = useState([])
@@ -37,6 +38,178 @@ const SolicitudesDespachadas = () => {
     if (result.success) {
       setSelectedSolicitud(result.data)
       setShowDetailModal(true)
+    }
+  }
+
+  // Generar PDF de la solicitud despachada
+  const handleImprimirPDF = async (solicitud) => {
+    try {
+      // Obtener detalles completos de la solicitud
+      const result = await crmService.getSolicitudDespachadaDetalle(solicitud.id)
+      if (!result.success) {
+        console.error('Error al obtener detalles:', result.message)
+        return
+      }
+
+      const solicitudData = result.data
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 20
+      const contentWidth = pageWidth - (margin * 2)
+
+      // Cargar y agregar logo
+      const logoImg = new Image()
+      logoImg.crossOrigin = 'anonymous'
+      logoImg.src = '/logo-indrhi.png'
+      
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(), 2000) // Timeout de 2 segundos
+        logoImg.onload = () => {
+          clearTimeout(timeout)
+          try {
+            const logoWidth = 60
+            const logoHeight = (logoImg.height * logoWidth) / logoImg.width
+            const logoX = (pageWidth - logoWidth) / 2
+            pdf.addImage(logoImg, 'PNG', logoX, margin, logoWidth, logoHeight)
+          } catch (e) {
+            console.warn('Error al agregar logo al PDF:', e)
+          }
+          resolve()
+        }
+        logoImg.onerror = () => {
+          clearTimeout(timeout)
+          resolve() // Continuar aunque falle la carga del logo
+        }
+      })
+
+      let yPos = margin + 35
+
+      // Título del documento
+      pdf.setFontSize(16)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('SOLICITUD DESPACHADA', pageWidth / 2, yPos, { align: 'center' })
+      yPos += 10
+
+      // Información de la solicitud
+      pdf.setFontSize(11)
+      pdf.setFont('helvetica', 'normal')
+      
+      // Fecha
+      const fechaFormateada = new Date(solicitudData.fecha).toLocaleDateString('es-DO', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+      pdf.text(`Fecha: ${fechaFormateada}`, margin, yPos)
+      yPos += 7
+
+      // Número de solicitud
+      pdf.setFont('helvetica', 'bold')
+      pdf.text(`Número de Solicitud: ${solicitudData.numero_solicitud}`, margin, yPos)
+      yPos += 10
+
+      // Tabla de artículos
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(12)
+      pdf.text('Artículos Despachados', margin, yPos)
+      yPos += 8
+
+      // Encabezados de la tabla
+      pdf.setFontSize(10)
+      pdf.setFillColor(240, 240, 240)
+      const headerHeight = 8
+      pdf.rect(margin, yPos - 5, contentWidth, headerHeight, 'F')
+      
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Departamento', margin + 2, yPos)
+      pdf.text('Artículo', margin + 60, yPos)
+      pdf.text('Cantidad', margin + 150, yPos)
+      yPos += headerHeight
+
+      // Línea separadora
+      pdf.setDrawColor(200, 200, 200)
+      pdf.line(margin, yPos, pageWidth - margin, yPos)
+      yPos += 5
+
+      // Datos de los artículos
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      
+      const articulos = solicitudData.articulos || []
+      const departamento = solicitudData.departamento || 'N/A'
+
+      articulos.forEach((articulo, index) => {
+        // Verificar si necesitamos una nueva página
+        if (yPos > pageHeight - 60) {
+          pdf.addPage()
+          yPos = margin + 10
+        }
+
+        const nombreArticulo = articulo.articulo || articulo.nombre || articulo.codigo || 'N/A'
+        const cantidad = articulo.cantidad || 0
+
+        let deptoLines = []
+        // Departamento (solo en la primera fila)
+        if (index === 0) {
+          deptoLines = pdf.splitTextToSize(departamento, 50)
+          pdf.text(deptoLines, margin + 2, yPos)
+        }
+
+        // Artículo
+        const articuloLines = pdf.splitTextToSize(nombreArticulo, 80)
+        pdf.text(articuloLines, margin + 60, yPos)
+
+        // Cantidad
+        pdf.text(cantidad.toString(), margin + 150, yPos)
+
+        // Línea separadora entre filas
+        if (index < articulos.length - 1) {
+          pdf.setDrawColor(230, 230, 230)
+          pdf.line(margin, yPos + 3, pageWidth - margin, yPos + 3)
+        }
+
+        // Ajustar posición Y según la cantidad de líneas del artículo
+        const maxLines = Math.max(deptoLines.length || 1, articuloLines.length)
+        yPos += Math.max(8, maxLines * 4)
+      })
+
+      // Espacio para firma al final
+      yPos = pageHeight - 50
+      pdf.setDrawColor(0, 0, 0)
+      pdf.line(margin, yPos, pageWidth - margin, yPos)
+      yPos += 8
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.text(`Departamento: ${departamento}`, margin, yPos)
+      yPos += 10
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      pdf.text('Firma y Sello:', margin, yPos)
+      yPos += 15
+
+      // Línea para firma
+      pdf.setDrawColor(150, 150, 150)
+      pdf.line(margin, yPos, margin + 80, yPos)
+      pdf.text('_________________________', margin, yPos + 5)
+
+      // Abrir PDF en nueva pestaña
+      const pdfBlob = pdf.output('blob')
+      const pdfUrl = URL.createObjectURL(pdfBlob)
+      window.open(pdfUrl, '_blank')
+      
+      // Limpiar URL después de un tiempo
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 100)
+    } catch (error) {
+      console.error('Error al generar PDF:', error)
+      alert('Error al generar el PDF. Por favor, intente nuevamente.')
     }
   }
 
@@ -168,13 +341,22 @@ const SolicitudesDespachadas = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <button
-                        onClick={() => handleVerDetalles(solicitud)}
-                        className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                        title="Ver detalles"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleVerDetalles(solicitud)}
+                          className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                          title="Ver detalles"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleImprimirPDF(solicitud)}
+                          className="p-2 text-green-600 hover:text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                          title="Imprimir PDF"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
