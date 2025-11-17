@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, X, Trash2, AlertCircle, Package, Check } from 'lucide-react'
+import { Search, Plus, Eye, X, Trash2, AlertCircle, Package, Check, Edit } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import { getUnidadLabel } from '../constants/unidades'
 import Pagination from './Pagination'
@@ -14,7 +14,11 @@ const EntradaMercancia = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [entradaToDelete, setEntradaToDelete] = useState(null)
   const [selectedEntrada, setSelectedEntrada] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingEntradaId, setEditingEntradaId] = useState(null)
   const [formData, setFormData] = useState({
     numero_entrada: '',
     numero_orden: '',
@@ -125,6 +129,8 @@ const EntradaMercancia = () => {
     try {
       const result = await crmService.getSiguienteNumeroEntrada()
       if (result.success) {
+        setIsEditing(false)
+        setEditingEntradaId(null)
         setFormData({
           numero_entrada: result.data.numero_entrada,
           numero_orden: result.data.numero_orden,
@@ -142,6 +148,79 @@ const EntradaMercancia = () => {
       }
     } catch (error) {
       console.error('Error al obtener siguiente número:', error)
+    }
+  }
+
+  // Abrir modal para editar entrada
+  const handleEditarEntrada = async (entrada) => {
+    try {
+      const result = await crmService.getEntradaMercanciaDetalle(entrada.id)
+      if (result.success) {
+        setIsEditing(true)
+        setEditingEntradaId(entrada.id)
+        setFormData({
+          numero_entrada: result.data.numero_entrada,
+          numero_orden: result.data.numero_orden,
+          fecha: result.data.fecha,
+          suplidor: result.data.suplidor
+        })
+        
+        // Cargar artículos de la entrada
+        if (result.data.articulos && result.data.articulos.length > 0) {
+          setArticulosSeleccionados(result.data.articulos.map(art => ({
+            codigo: art.codigo || art.articulo,
+            nombre: art.nombre || art.descripcion || art.codigo || art.articulo,
+            cantidad: art.cantidad || 0,
+            unidad: art.unidad || 'UNIDAD'
+          })))
+        } else {
+          setArticulosSeleccionados([])
+        }
+        
+        setArticuloActual({
+          articulo: '',
+          cantidad: '',
+          unidad: 'UNIDAD'
+        })
+        setError('')
+        setShowModal(true)
+      }
+    } catch (error) {
+      console.error('Error al cargar entrada para editar:', error)
+      setError('Error al cargar la entrada para editar')
+    }
+  }
+
+  // Confirmar eliminación
+  const handleConfirmarEliminar = (entrada) => {
+    setEntradaToDelete(entrada)
+    setShowDeleteConfirm(true)
+  }
+
+  // Eliminar entrada
+  const handleEliminarEntrada = async () => {
+    if (!entradaToDelete) return
+
+    setSaving(true)
+    setError('')
+
+    try {
+      const result = await crmService.deleteEntradaMercancia(entradaToDelete.id)
+
+      if (result.success) {
+        setShowDeleteConfirm(false)
+        setEntradaToDelete(null)
+        setSuccessMessage('Entrada eliminada correctamente')
+        setTimeout(() => setSuccessMessage(''), 3000)
+        await loadData()
+      } else {
+        setError(result.message || 'Error al eliminar la entrada')
+      }
+    } catch (error) {
+      setError('Error al eliminar la entrada: ' + (error.message || 'Error desconocido'))
+      console.error('Error completo:', error)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -196,7 +275,7 @@ const EntradaMercancia = () => {
     })
   }
 
-  // Guardar entrada
+  // Guardar entrada (crear o actualizar)
   const handleGuardar = async () => {
     if (!formData.suplidor.trim()) {
       setError('Debe ingresar el nombre del suplidor')
@@ -225,10 +304,17 @@ const EntradaMercancia = () => {
         })))
       }
 
-      const result = await crmService.createEntradaMercancia(entrada)
+      let result
+      if (isEditing && editingEntradaId) {
+        result = await crmService.updateEntradaMercancia(editingEntradaId, entrada)
+      } else {
+        result = await crmService.createEntradaMercancia(entrada)
+      }
 
       if (result.success) {
         setShowModal(false)
+        setIsEditing(false)
+        setEditingEntradaId(null)
         setFormData({
           numero_entrada: '',
           numero_orden: '',
@@ -242,14 +328,14 @@ const EntradaMercancia = () => {
           unidad: 'UNIDAD'
         })
         setError('')
-        setSuccessMessage('Entrada de mercancía creada correctamente')
+        setSuccessMessage(isEditing ? 'Entrada de mercancía actualizada correctamente' : 'Entrada de mercancía creada correctamente')
         setTimeout(() => setSuccessMessage(''), 3000)
         await loadData()
       } else {
-        setError(result.message || 'Error al crear la entrada')
+        setError(result.message || `Error al ${isEditing ? 'actualizar' : 'crear'} la entrada`)
       }
     } catch (error) {
-      setError('Error al guardar la entrada: ' + (error.message || 'Error desconocido'))
+      setError(`Error al ${isEditing ? 'actualizar' : 'guardar'} la entrada: ` + (error.message || 'Error desconocido'))
       console.error('Error completo:', error)
     } finally {
       setSaving(false)
@@ -404,14 +490,32 @@ const EntradaMercancia = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <button
-                        onClick={() => handleVerDetalles(entrada)}
-                        className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors inline-flex items-center gap-1"
-                        title="Ver detalles"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span className="text-xs">Detalles</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleVerDetalles(entrada)}
+                          className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors inline-flex items-center gap-1"
+                          title="Ver detalles"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="text-xs">Detalles</span>
+                        </button>
+                        <button
+                          onClick={() => handleEditarEntrada(entrada)}
+                          className="p-2 text-green-600 hover:text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors inline-flex items-center gap-1"
+                          title="Editar entrada"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span className="text-xs">Editar</span>
+                        </button>
+                        <button
+                          onClick={() => handleConfirmarEliminar(entrada)}
+                          className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors inline-flex items-center gap-1"
+                          title="Eliminar entrada"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="text-xs">Eliminar</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -428,10 +532,14 @@ const EntradaMercancia = () => {
             {/* Header */}
             <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Nueva Entrada de Mercancía
+                {isEditing ? 'Editar Entrada de Mercancía' : 'Nueva Entrada de Mercancía'}
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false)
+                  setIsEditing(false)
+                  setEditingEntradaId(null)
+                }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-6 h-6 text-gray-500" />
@@ -493,10 +601,11 @@ const EntradaMercancia = () => {
                   <div>
                     <label className="label-field">Fecha</label>
                     <input
-                      type="text"
-                      value={formatFecha(formData.fecha)}
-                      disabled
-                      className="input-field bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+                      type="date"
+                      value={formData.fecha}
+                      onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                      disabled={!isEditing}
+                      className={isEditing ? "input-field" : "input-field bg-gray-100 dark:bg-gray-700 cursor-not-allowed"}
                     />
                   </div>
 
@@ -634,7 +743,11 @@ const EntradaMercancia = () => {
             {/* Footer */}
             <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false)
+                  setIsEditing(false)
+                  setEditingEntradaId(null)
+                }}
                 className="btn-secondary"
                 disabled={saving}
               >
@@ -648,10 +761,10 @@ const EntradaMercancia = () => {
                 {saving ? (
                   <>
                     <span className="spinner-small"></span>
-                    Guardando...
+                    {isEditing ? 'Actualizando...' : 'Guardando...'}
                   </>
                 ) : (
-                  'Guardar Entrada'
+                  isEditing ? 'Actualizar Entrada' : 'Guardar Entrada'
                 )}
               </button>
             </div>
@@ -768,6 +881,69 @@ const EntradaMercancia = () => {
                 className="btn-secondary"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Eliminación */}
+      {showDeleteConfirm && entradaToDelete && (
+        <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                Confirmar Eliminación
+              </h2>
+            </div>
+
+            {/* Body */}
+            <div className="p-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                ¿Está seguro de que desea eliminar la entrada <strong>{entradaToDelete.numero_entrada}</strong>?
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Esta acción revertirá las existencias de los artículos asociados y no se puede deshacer.
+              </p>
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2 mb-4">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                  <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  setEntradaToDelete(null)
+                  setError('')
+                }}
+                className="btn-secondary"
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEliminarEntrada}
+                className="btn-primary bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar
+                  </>
+                )}
               </button>
             </div>
           </div>

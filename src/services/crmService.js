@@ -702,6 +702,136 @@ export const crmService = {
     }
   },
 
+  updateEntradaMercancia: async (id, entrada) => {
+    try {
+      // Obtener la entrada original para revertir existencias
+      const { data: entradaOriginal, error: errorOriginal } = await supabase
+        .from('sum_entrada_mercancia')
+        .select('articulos_cantidades_unidades')
+        .eq('id', id)
+        .single()
+
+      if (errorOriginal) throw errorOriginal
+
+      // Revertir existencias de artículos originales
+      if (entradaOriginal.articulos_cantidades_unidades) {
+        const articulosOriginales = JSON.parse(entradaOriginal.articulos_cantidades_unidades)
+        
+        for (const articulo of articulosOriginales) {
+          const { data: artData, error: artError } = await supabase
+            .from('sum_articulos')
+            .select('id, existencia')
+            .eq('codigo', articulo.codigo)
+            .single()
+
+          if (!artError && artData) {
+            const nuevaExistencia = Math.max(0, (artData.existencia || 0) - articulo.cantidad)
+            await supabase
+              .from('sum_articulos')
+              .update({ existencia: nuevaExistencia })
+              .eq('id', artData.id)
+          }
+        }
+      }
+
+      // Actualizar la entrada
+      const { data, error } = await supabase
+        .from('sum_entrada_mercancia')
+        .update(entrada)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Aplicar nuevas existencias de artículos
+      if (entrada.articulos_cantidades_unidades) {
+        const articulos = JSON.parse(entrada.articulos_cantidades_unidades)
+        
+        for (const articulo of articulos) {
+          const { data: artData, error: artError } = await supabase
+            .from('sum_articulos')
+            .select('id, existencia')
+            .eq('codigo', articulo.codigo)
+            .single()
+
+          if (!artError && artData) {
+            const nuevaExistencia = (artData.existencia || 0) + articulo.cantidad
+            await supabase
+              .from('sum_articulos')
+              .update({ existencia: nuevaExistencia })
+              .eq('id', artData.id)
+          }
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Entrada actualizada correctamente',
+        data
+      }
+    } catch (error) {
+      console.error('Error al actualizar entrada:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al actualizar entrada'
+      }
+    }
+  },
+
+  deleteEntradaMercancia: async (id) => {
+    try {
+      // Obtener la entrada para revertir existencias
+      const { data: entrada, error: errorEntrada } = await supabase
+        .from('sum_entrada_mercancia')
+        .select('articulos_cantidades_unidades')
+        .eq('id', id)
+        .single()
+
+      if (errorEntrada) throw errorEntrada
+
+      // Revertir existencias de artículos
+      if (entrada.articulos_cantidades_unidades) {
+        const articulos = JSON.parse(entrada.articulos_cantidades_unidades)
+        
+        for (const articulo of articulos) {
+          const { data: artData, error: artError } = await supabase
+            .from('sum_articulos')
+            .select('id, existencia')
+            .eq('codigo', articulo.codigo)
+            .single()
+
+          if (!artError && artData) {
+            const nuevaExistencia = Math.max(0, (artData.existencia || 0) - articulo.cantidad)
+            await supabase
+              .from('sum_articulos')
+              .update({ existencia: nuevaExistencia })
+              .eq('id', artData.id)
+          }
+        }
+      }
+
+      // Eliminar la entrada
+      const { error } = await supabase
+        .from('sum_entrada_mercancia')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      return {
+        success: true,
+        message: 'Entrada eliminada correctamente'
+      }
+    } catch (error) {
+      console.error('Error al eliminar entrada:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al eliminar entrada'
+      }
+    }
+  },
+
   // ========== SOLICITUDES DE ARTÍCULOS ==========
   getSolicitudes: async () => {
     try {
