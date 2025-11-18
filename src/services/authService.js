@@ -31,6 +31,27 @@ export const authService = {
       })
 
       if (error) {
+        // Si el error es de usuario no encontrado o credenciales inválidas,
+        // verificar si hay un problema de sincronización de email
+        if (error.message?.includes('Invalid login credentials') || 
+            error.message?.includes('Email not confirmed') ||
+            error.status === 400) {
+          
+          // Verificar si el email existe en la tabla pero no en Auth
+          const { data: userInTable } = await supabase
+            .from('sum_usuarios_departamentos')
+            .select('email, user_id')
+            .eq('email', email)
+            .single()
+
+          if (userInTable) {
+            return {
+              success: false,
+              message: 'Error de autenticación: El email puede estar desincronizado entre la base de datos y el sistema de autenticación. Por favor, contacte al administrador.'
+            }
+          }
+        }
+
         return {
           success: false,
           message: error.message || 'Error en la autenticación'

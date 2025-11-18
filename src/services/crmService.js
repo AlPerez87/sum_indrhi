@@ -498,17 +498,94 @@ export const crmService = {
     }
   },
 
+  // Función helper para sincronizar email entre tabla y Supabase Auth
+  // NOTA: Esta función requiere permisos de administrador (service role key)
+  // Si no tienes permisos, deberás sincronizar manualmente desde Supabase Dashboard
+  sincronizarEmailUsuario: async (userId, emailTabla) => {
+    try {
+      // Verificar si tenemos acceso a admin (puede fallar si usamos anon key)
+      if (!supabase.auth.admin) {
+        console.warn('No se tienen permisos de administrador para sincronizar email')
+        return { 
+          success: false, 
+          message: 'Se requieren permisos de administrador. Sincronice manualmente desde Supabase Dashboard.' 
+        }
+      }
+
+      // Verificar el email actual en Supabase Auth
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId)
+      
+      if (authError) {
+        // Si el error es de permisos, informar al usuario
+        if (authError.message?.includes('permission') || authError.message?.includes('admin')) {
+          return { 
+            success: false, 
+            message: 'Se requieren permisos de administrador para sincronizar el email. Por favor, sincronice manualmente desde Supabase Dashboard actualizando el email en Authentication > Users.' 
+          }
+        }
+        console.error('Error al obtener usuario de Auth:', authError)
+        return { success: false, message: 'Error al verificar usuario en Auth' }
+      }
+
+      // Si el email es diferente, sincronizarlo
+      if (authUser?.user?.email !== emailTabla) {
+        const { error: updateError } = await supabase.auth.admin.updateUserById(
+          userId,
+          { email: emailTabla }
+        )
+
+        if (updateError) {
+          if (updateError.message?.includes('permission') || updateError.message?.includes('admin')) {
+            return { 
+              success: false, 
+              message: 'Se requieren permisos de administrador. Sincronice manualmente desde Supabase Dashboard.' 
+            }
+          }
+          console.error('Error al sincronizar email:', updateError)
+          return { success: false, message: 'Error al sincronizar email con Auth' }
+        }
+
+        return { success: true, message: 'Email sincronizado correctamente' }
+      }
+
+      return { success: true, message: 'Email ya está sincronizado' }
+    } catch (error) {
+      console.error('Error en sincronizarEmailUsuario:', error)
+      // Si el error es porque no tenemos admin, informar claramente
+      if (error.message?.includes('admin') || error.message?.includes('permission')) {
+        return { 
+          success: false, 
+          message: 'Se requieren permisos de administrador. Sincronice manualmente desde Supabase Dashboard.' 
+        }
+      }
+      return { success: false, message: error.message || 'Error al sincronizar email' }
+    }
+  },
+
   updateUsuarioPassword: async (id, password) => {
     try {
-      // Obtener el user_id de la tabla usuarios_departamentos
+      // Obtener el user_id y email de la tabla usuarios_departamentos
       const { data: usuario, error: usuarioError } = await supabase
         .from('sum_usuarios_departamentos')
-        .select('user_id')
+        .select('user_id, email')
         .eq('id', id)
         .single()
 
       if (usuarioError || !usuario) {
         throw new Error('Usuario no encontrado')
+      }
+
+      if (!usuario.user_id) {
+        throw new Error('Usuario no tiene user_id asociado')
+      }
+
+      // Sincronizar email antes de actualizar contraseña
+      if (usuario.email) {
+        const syncResult = await crmService.sincronizarEmailUsuario(usuario.user_id, usuario.email)
+        if (!syncResult.success) {
+          console.warn('Advertencia: No se pudo sincronizar el email:', syncResult.message)
+          // Continuar con la actualización de contraseña aunque falle la sincronización
+        }
       }
 
       // Actualizar contraseña en Supabase Auth
