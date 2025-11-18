@@ -110,3 +110,7 @@ Ambos emails deben coincidir.
 - El código ahora intenta sincronizar automáticamente antes de actualizar contraseñas
 - Los mensajes de error ahora son más descriptivos para ayudar a identificar problemas de sincronización
 
+## Actualización: Edge Function para Contraseñas
+
+**Nota importante**: La actualización de contraseñas ahora se realiza a través de una Edge Function de Supabase (`update-user-password`) para mayor seguridad. Ver `CONFIGURAR_EDGE_FUNCTION_PASSWORD.md` para más detalles.
+

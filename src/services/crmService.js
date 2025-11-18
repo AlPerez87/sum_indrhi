@@ -588,17 +588,45 @@ export const crmService = {
         }
       }
 
-      // Actualizar contraseña en Supabase Auth
-      const { error } = await supabase.auth.admin.updateUserById(
-        usuario.user_id,
-        { password }
-      )
+      // Obtener la sesión actual para autenticación
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        throw new Error('No hay sesión activa. Por favor, inicie sesión nuevamente.')
+      }
 
-      if (error) throw error
+      // Obtener la URL de Supabase desde las variables de entorno
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      if (!supabaseUrl) {
+        throw new Error('Configuración de Supabase no encontrada')
+      }
+
+      // Llamar a la Edge Function para actualizar la contraseña
+      const response = await fetch(`${supabaseUrl}/functions/v1/update-user-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: usuario.user_id,
+          newPassword: password
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al actualizar contraseña')
+      }
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error al actualizar contraseña')
+      }
 
       return {
         success: true,
-        message: 'Contraseña actualizada correctamente'
+        message: result.message || 'Contraseña actualizada correctamente'
       }
     } catch (error) {
       console.error('Error al actualizar contraseña:', error)
