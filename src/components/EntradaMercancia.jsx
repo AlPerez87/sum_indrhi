@@ -5,6 +5,7 @@ import { getUnidadLabel } from '../constants/unidades'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
 import SearchableSelect from './SearchableSelect'
+import { formatDate, getCurrentYear } from '../utils/dateUtils'
 
 const EntradaMercancia = () => {
   const [entradas, setEntradas] = useState([])
@@ -272,7 +273,7 @@ const EntradaMercancia = () => {
     setFormatoOrden(nuevoFormato)
     // Mantener el número final y actualizar el formato
     const numeroFinal = formData.numero_orden.slice(-4) || '0001'
-    const anioActual = new Date().getFullYear()
+    const anioActual = getCurrentYear()
     const prefix = `INDRHI-DAF-${nuevoFormato}-${anioActual}-`
     
     setFormData({
@@ -283,7 +284,7 @@ const EntradaMercancia = () => {
 
   // Editar número de orden (solo los últimos 4 dígitos)
   const handleNumeroOrdenChange = (value) => {
-    const anioActual = new Date().getFullYear()
+    const anioActual = getCurrentYear()
     const prefix = `INDRHI-DAF-${formatoOrden}-${anioActual}-`
     
     // Extraer solo los dígitos finales
@@ -379,8 +380,7 @@ const EntradaMercancia = () => {
 
   // Formatear fecha
   const formatFecha = (fecha) => {
-    const date = new Date(fecha + 'T00:00:00')
-    return date.toLocaleDateString('es-DO', {
+    return formatDate(fecha, {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -618,7 +618,7 @@ const EntradaMercancia = () => {
                             className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                           />
                           <span className="text-sm text-gray-700 dark:text-gray-300 font-mono">
-                            INDRHI-DAF-CD-{new Date().getFullYear()}-XXXX
+                            INDRHI-DAF-CD-{getCurrentYear()}-XXXX
                           </span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -631,7 +631,7 @@ const EntradaMercancia = () => {
                             className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                           />
                           <span className="text-sm text-gray-700 dark:text-gray-300 font-mono">
-                            INDRHI-DAF-CM-{new Date().getFullYear()}-XXXX
+                            INDRHI-DAF-CM-{getCurrentYear()}-XXXX
                           </span>
                         </label>
                       </div>
@@ -645,7 +645,7 @@ const EntradaMercancia = () => {
                         type="text"
                         value={formData.numero_orden.slice(-4)}
                         onChange={(e) => {
-                          const anioActual = new Date().getFullYear()
+                          const anioActual = getCurrentYear()
                           handleNumeroOrdenChange(`INDRHI-DAF-${formatoOrden}-${anioActual}-${e.target.value}`)
                         }}
                         maxLength={4}

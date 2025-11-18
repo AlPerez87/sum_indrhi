@@ -4,6 +4,7 @@ import { crmService } from '../services/crmService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
 import jsPDF from 'jspdf'
+import { formatDate } from '../utils/dateUtils'
 
 const SolicitudesDespachadas = () => {
   const [solicitudes, setSolicitudes] = useState([])
@@ -97,7 +98,7 @@ const SolicitudesDespachadas = () => {
       yPos += 12
 
       // Minitabla con información de la solicitud
-      const fechaFormateada = new Date(solicitudData.fecha).toLocaleDateString('es-DO', {
+      const fechaFormateada = formatDate(solicitudData.fecha, {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
@@ -361,7 +362,7 @@ const SolicitudesDespachadas = () => {
                       {solicitud.numero_solicitud}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {new Date(solicitud.fecha).toLocaleDateString('es-DO')}
+                      {formatDate(solicitud.fecha)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                       {solicitud.departamento}
@@ -447,7 +448,7 @@ const SolicitudesDespachadas = () => {
                     <div>
                       <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Fecha</label>
                       <p className="text-sm text-gray-900 dark:text-white mt-1">
-                        {new Date(selectedSolicitud.fecha).toLocaleDateString('es-DO')}
+                        {formatDate(selectedSolicitud.fecha)}
                       </p>
                     </div>
                     <div>

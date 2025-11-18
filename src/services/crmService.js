@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { getCurrentYear, getTodayISO } from '../utils/dateUtils'
 
 // Función auxiliar para obtener el usuario actual
 const getCurrentUserId = () => {
@@ -613,7 +614,7 @@ export const crmService = {
 
   getSiguienteNumeroEntrada: async () => {
     try {
-      const currentYear = new Date().getFullYear()
+      const currentYear = getCurrentYear()
       
       // Obtener el último número de entrada del año actual
       const { data, error } = await supabase
@@ -636,7 +637,7 @@ export const crmService = {
 
       const numeroFormateado = `INDRHI-EM-${currentYear}-${String(siguienteNumero).padStart(4, '0')}`
       const numeroOrden = `INDRHI-DAF-CD-${currentYear}-${String(siguienteNumero).padStart(4, '0')}`
-      const fechaActual = new Date().toISOString().split('T')[0]
+      const fechaActual = getTodayISO()
 
       return {
         success: true,
@@ -962,7 +963,7 @@ export const crmService = {
         throw new Error('El ID del departamento es requerido')
       }
 
-      const currentYear = new Date().getFullYear()
+      const currentYear = getCurrentYear()
       const prefix = `SD${departamentoId}-${currentYear}-`
 
       // Buscar el último número de solicitud para este departamento y año
@@ -990,7 +991,7 @@ export const crmService = {
 
       // Formatear el número con 4 dígitos
       const numeroFormateado = `${prefix}${String(siguienteNumero).padStart(4, '0')}`
-      const fechaActual = new Date().toISOString().split('T')[0]
+      const fechaActual = getTodayISO()
 
       return {
         success: true,

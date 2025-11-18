@@ -34,6 +34,7 @@ import { useTheme } from '../context/ThemeContext'
 import { crmService } from '../services/crmService'
 import CambiarPasswordModal from './CambiarPasswordModal'
 import { filterMenuItems } from '../utils/permissions'
+import { formatDateTime } from '../utils/dateUtils'
 
 const Dashboard = ({ onLogout, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -409,7 +410,7 @@ const Dashboard = ({ onLogout, children }) => {
                                 {notification.descripcion}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                {new Date(notification.fecha).toLocaleDateString('es-DO', {
+                                {formatDateTime(notification.fecha, {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric',

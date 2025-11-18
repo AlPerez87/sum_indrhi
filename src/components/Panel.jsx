@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import { authService } from '../services/authService'
+import { formatDate } from '../utils/dateUtils'
 
 const Panel = () => {
   const [stats, setStats] = useState({
@@ -526,7 +527,7 @@ const Panel = () => {
                      solicitud.estado === 'enviado' ? 'Enviada' : 'Borrador'}
                   </span>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {new Date(solicitud.fecha).toLocaleDateString('es-DO')}
+                    {formatDate(solicitud.fecha)}
                   </p>
                 </div>
               </div>
