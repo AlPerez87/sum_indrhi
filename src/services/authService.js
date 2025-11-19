@@ -1,21 +1,25 @@
+import { isSupabase, isMySQL } from '../config/database'
 import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/databaseAdapter'
+import * as mysqlAuth from '../lib/mysqlAuth'
+import { buildJoinQuery } from '../lib/databaseAdapter'
 
 export const authService = {
   login: async (usernameOrEmail, password) => {
     try {
-      // Intentar login con email (Supabase requiere email)
-      // Si el usuario proporciona username, primero buscar el email
+      // Si es MySQL, usar autenticación MySQL
+      if (isMySQL()) {
+        return await mysqlAuth.loginMySQL(usernameOrEmail, password)
+      }
+      
+      // Supabase Auth (código original)
       let email = usernameOrEmail
 
       // Si no parece un email, buscar en usuarios_departamentos
       if (!usernameOrEmail.includes('@')) {
-        const { data: userData, error: userError } = await supabase
-          .from('sum_usuarios_departamentos')
-          .select('email')
-          .eq('username', usernameOrEmail)
-          .single()
+        const userData = await db.from('sum_usuarios_departamentos').findOne({ username: usernameOrEmail })
 
-        if (userError || !userData) {
+        if (!userData) {
           return {
             success: false,
             message: 'Usuario no encontrado'
@@ -38,11 +42,7 @@ export const authService = {
             error.status === 400) {
           
           // Verificar si el email existe en la tabla pero no en Auth
-          const { data: userInTable } = await supabase
-            .from('sum_usuarios_departamentos')
-            .select('email, user_id')
-            .eq('email', email)
-            .single()
+          const userInTable = await db.from('sum_usuarios_departamentos').findOne({ email })
 
           if (userInTable) {
             return {
@@ -59,26 +59,55 @@ export const authService = {
       }
 
       // Obtener información adicional del usuario desde la tabla usuarios_departamentos
-      const { data: userInfo, error: userInfoError } = await supabase
-        .from('sum_usuarios_departamentos')
-        .select(`
-          *,
-          sum_departamentos:departamento_id (
-            id,
-            codigo,
-            departamento
-          ),
-          sum_roles:rol_id (
-            id,
-            nombre,
-            descripcion
-          )
-        `)
-        .eq('email', email)
-        .single()
+      let userInfo
+      
+      if (isSupabase()) {
+        const { data: userInfoData, error: userInfoError } = await supabase
+          .from('sum_usuarios_departamentos')
+          .select(`
+            *,
+            sum_departamentos:departamento_id (
+              id,
+              codigo,
+              departamento
+            ),
+            sum_roles:rol_id (
+              id,
+              nombre,
+              descripcion
+            )
+          `)
+          .eq('email', email)
+          .single()
+        
+        if (userInfoError) {
+          console.error('Error obteniendo información del usuario:', userInfoError)
+        }
+        userInfo = userInfoData
+      } else {
+        userInfo = await buildJoinQuery(
+          'sum_usuarios_departamentos',
+          [
+            {
+              table: 'sum_departamentos',
+              foreignKey: 'departamento_id',
+              on: 'id',
+              columns: 'id, codigo, departamento'
+            },
+            {
+              table: 'sum_roles',
+              foreignKey: 'rol_id',
+              on: 'id',
+              columns: 'id, nombre, descripcion'
+            }
+          ],
+          { email }
+        )
+        userInfo = userInfo[0]
+      }
 
       // Obtener el rol desde la relación con sum_roles
-      const rolBD = userInfo?.sum_roles?.nombre || 'Usuario'
+      const rolBD = userInfo?.sum_roles?.nombre || userInfo?.rol || 'Usuario'
       const rolFrontend = rolBD
 
       const userData = {
@@ -86,9 +115,9 @@ export const authService = {
         email: data.user.email,
         username: userInfo?.username || email.split('@')[0],
         nombre_completo: userInfo?.nombre_completo || userInfo?.username || email.split('@')[0],
-        rol: rolFrontend, // Mantener para compatibilidad
-        roles: [rolFrontend], // Array para RequireRole
-        perfil: rolFrontend, // Para RequireRole
+        rol: rolFrontend,
+        roles: [rolFrontend],
+        perfil: rolFrontend,
         departamento_id: userInfo?.departamento_id || null,
         departamento: userInfo?.sum_departamentos?.departamento || null,
         display_name: userInfo?.nombre_completo || userInfo?.username || email.split('@')[0]
@@ -112,10 +141,20 @@ export const authService = {
 
   validateToken: async () => {
     try {
+      if (isMySQL()) {
+        const user = await mysqlAuth.getCurrentUserMySQL()
+        if (!user) {
+          localStorage.removeItem('indrhi_user')
+          localStorage.removeItem('indrhi_session')
+          return false
+        }
+        return true
+      }
+      
+      // Supabase (código original)
       const { data: { user }, error } = await supabase.auth.getUser()
       
       if (error || !user) {
-        // Limpiar datos locales si el token es inválido
         localStorage.removeItem('indrhi_user')
         localStorage.removeItem('indrhi_session')
         return false
@@ -125,36 +164,16 @@ export const authService = {
       const userStr = localStorage.getItem('indrhi_user')
       if (userStr) {
         const currentUser = JSON.parse(userStr)
-        // Si el usuario existe pero no tiene roles, recargar desde la BD
         if (!currentUser.roles || currentUser.roles.length === 0) {
-          const { data: userInfo } = await supabase
-            .from('sum_usuarios_departamentos')
-            .select(`
-              *,
-              sum_departamentos:departamento_id (
-                id,
-                codigo,
-                departamento
-              ),
-              sum_roles:rol_id (
-                id,
-                nombre,
-                descripcion
-              )
-            `)
-            .eq('email', user.email)
-            .single()
-
+          const userInfo = await db.from('sum_usuarios_departamentos').findOne({ email: user.email })
+          
           if (userInfo) {
-            // Obtener el rol desde la relación con sum_roles
             const rolBD = userInfo.sum_roles?.nombre || 'Usuario'
-            const rolFrontend = rolBD
-
             const updatedUser = {
               ...currentUser,
-              rol: rolFrontend,
-              roles: [rolFrontend],
-              perfil: rolFrontend,
+              rol: rolBD,
+              roles: [rolBD],
+              perfil: rolBD,
               departamento_id: userInfo.departamento_id,
               departamento: userInfo.sum_departamentos?.departamento || null
             }
@@ -172,12 +191,15 @@ export const authService = {
 
   logout: async () => {
     try {
+      if (isMySQL()) {
+        return await mysqlAuth.logoutMySQL()
+      }
+      
       await supabase.auth.signOut()
       localStorage.removeItem('indrhi_user')
       localStorage.removeItem('indrhi_session')
     } catch (error) {
       console.error('Error al cerrar sesión:', error)
-      // Limpiar localStorage incluso si hay error
       localStorage.removeItem('indrhi_user')
       localStorage.removeItem('indrhi_session')
     }
@@ -194,9 +216,13 @@ export const authService = {
     return !!(userStr && sessionStr)
   },
 
-  // Método para obtener el token de sesión actual
   getSession: async () => {
     try {
+      if (isMySQL()) {
+        const sessionStr = localStorage.getItem('indrhi_session')
+        return sessionStr ? JSON.parse(sessionStr) : null
+      }
+      
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error) throw error
       return session
