@@ -9,7 +9,12 @@ export const initMySQL = async () => {
   if (mysqlPool) return mysqlPool
 
   try {
-    const mysql = await import('mysql2/promise')
+    // Importación dinámica para evitar problemas en build cuando no se usa MySQL
+    const mysql = await import('mysql2/promise').catch(() => null)
+    if (!mysql) {
+      throw new Error('mysql2 no está disponible. Instala con: npm install mysql2')
+    }
+    
     const { DATABASE_CONFIG } = await import('../config/database.js')
 
     mysqlPool = mysql.createPool({

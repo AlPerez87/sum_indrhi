@@ -1,11 +1,42 @@
 /**
  * Database Adapter
  * Permite cambiar entre Supabase y MySQL sin modificar el código de los servicios
+ * 
+ * NOTA: Para producción con Supabase, este archivo solo usa Supabase.
+ * MySQL se carga dinámicamente solo cuando VITE_DATABASE_TYPE=mysql
  */
 
 import { supabase } from './supabaseClient'
 import { isSupabase, isMySQL } from '../config/database'
-import * as mysqlClient from './mysqlClient'
+
+/**
+ * Importación dinámica de mysqlClient solo cuando sea necesario
+ * Esto evita problemas en el build cuando solo se usa Supabase
+ */
+let mysqlClientModule = null
+const getMySQLClient = async () => {
+  if (!isMySQL()) {
+    return null
+  }
+  
+  if (!mysqlClientModule) {
+    try {
+      mysqlClientModule = await import('./mysqlClient')
+    } catch (error) {
+      console.warn('MySQL client no disponible:', error)
+      return null
+    }
+  }
+  return mysqlClientModule
+}
+
+/**
+ * Helper para obtener funciones de MySQL de forma segura
+ */
+const getMySQLFunction = (client, functionName) => {
+  if (!client) return null
+  return client[functionName] || (client.default && client.default[functionName])
+}
 
 /**
  * Adaptador que proporciona una interfaz común para ambas bases de datos
@@ -26,7 +57,9 @@ export const db = {
         }
         
         if (options.orderBy) {
-          const [column, direction] = options.orderBy.split(' ')
+          const parts = options.orderBy.split(' ')
+          const column = parts[0]
+          const direction = parts[1]
           query = query.order(column, { ascending: direction !== 'desc' })
         }
         
@@ -39,13 +72,20 @@ export const db = {
         if (error) throw error
         return data
       } else {
-        // MySQL
+        const client = await getMySQLClient()
+        if (!client) {
+          throw new Error('MySQL client no disponible')
+        }
+        const selectMySQL = getMySQLFunction(client, 'selectMySQL')
+        if (!selectMySQL) {
+          throw new Error('selectMySQL no disponible')
+        }
         const conditions = options.where || {}
         const mysqlOptions = {
           orderBy: options.orderBy,
           limit: options.limit
         }
-        return await mysqlClient.selectMySQL(table, conditions, mysqlOptions)
+        return await selectMySQL(table, conditions, mysqlOptions)
       }
     },
     
@@ -63,7 +103,15 @@ export const db = {
         if (error) throw error
         return result
       } else {
-        return await mysqlClient.insertMySQL(table, data)
+        const client = await getMySQLClient()
+        if (!client) {
+          throw new Error('MySQL client no disponible')
+        }
+        const insertMySQL = getMySQLFunction(client, 'insertMySQL')
+        if (!insertMySQL) {
+          throw new Error('insertMySQL no disponible')
+        }
+        return await insertMySQL(table, data)
       }
     },
     
@@ -82,7 +130,15 @@ export const db = {
         if (error) throw error
         return result
       } else {
-        return await mysqlClient.updateMySQL(table, id, data)
+        const client = await getMySQLClient()
+        if (!client) {
+          throw new Error('MySQL client no disponible')
+        }
+        const updateMySQL = getMySQLFunction(client, 'updateMySQL')
+        if (!updateMySQL) {
+          throw new Error('updateMySQL no disponible')
+        }
+        return await updateMySQL(table, id, data)
       }
     },
     
@@ -99,7 +155,15 @@ export const db = {
         if (error) throw error
         return { success: true }
       } else {
-        return await mysqlClient.deleteMySQL(table, id)
+        const client = await getMySQLClient()
+        if (!client) {
+          throw new Error('MySQL client no disponible')
+        }
+        const deleteMySQL = getMySQLFunction(client, 'deleteMySQL')
+        if (!deleteMySQL) {
+          throw new Error('deleteMySQL no disponible')
+        }
+        return await deleteMySQL(table, id)
       }
     },
     
@@ -116,13 +180,22 @@ export const db = {
         
         const { data, error } = await query.single()
         
-        if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows returned
+        if (error && error.code !== 'PGRST116') throw error
         return data || null
       } else {
-        return await mysqlClient.queryOneMySQL(
-          `SELECT * FROM ${table} WHERE ${Object.keys(conditions).map(k => `${k} = ?`).join(' AND ')}`,
-          Object.values(conditions)
-        )
+        const client = await getMySQLClient()
+        if (!client) {
+          throw new Error('MySQL client no disponible')
+        }
+        const queryOneMySQL = getMySQLFunction(client, 'queryOneMySQL')
+        if (!queryOneMySQL) {
+          throw new Error('queryOneMySQL no disponible')
+        }
+        const keys = Object.keys(conditions)
+        const whereParts = keys.map(function(k) { return k + ' = ?' })
+        const whereClause = whereParts.join(' AND ')
+        const sql = 'SELECT * FROM ' + table + ' WHERE ' + whereClause
+        return await queryOneMySQL(sql, Object.values(conditions))
       }
     },
     
@@ -142,22 +215,41 @@ export const db = {
         if (error) throw error
         return data || []
       } else {
-        return await mysqlClient.selectMySQL(table, conditions)
+        const client = await getMySQLClient()
+        if (!client) {
+          throw new Error('MySQL client no disponible')
+        }
+        const selectMySQL = getMySQLFunction(client, 'selectMySQL')
+        if (!selectMySQL) {
+          throw new Error('selectMySQL no disponible')
+        }
+        return await selectMySQL(table, conditions)
       }
     }
-  },
+  }),
   
   /**
    * Autenticación (solo para Supabase, MySQL usa sistema propio)
    */
-  auth: isSupabase() ? supabase.auth : null,
+  getAuth: function() {
+    return isSupabase() ? supabase.auth : null
+  },
   
   /**
    * Ejecuta una query SQL personalizada (solo MySQL)
    */
-  query: async (sql, params = []) => {
+  query: async function(sql, params) {
+    params = params || []
     if (isMySQL()) {
-      return await mysqlClient.queryMySQL(sql, params)
+      const client = await getMySQLClient()
+      if (!client) {
+        throw new Error('MySQL client no disponible')
+      }
+      const queryMySQL = getMySQLFunction(client, 'queryMySQL')
+      if (!queryMySQL) {
+        throw new Error('queryMySQL no disponible')
+      }
+      return await queryMySQL(sql, params)
     } else {
       throw new Error('Query SQL personalizada solo disponible en MySQL')
     }
@@ -167,23 +259,31 @@ export const db = {
 /**
  * Helper para construir queries complejas con joins (MySQL)
  */
-export const buildJoinQuery = async (baseTable, joins = [], conditions = {}, options = {}) => {
+export const buildJoinQuery = async function(baseTable, joins, conditions, options) {
+  joins = joins || []
+  conditions = conditions || {}
+  options = options || {}
+  
   if (isSupabase()) {
-    // Para Supabase, usar select con relaciones
     let select = baseTable
     if (joins.length > 0) {
-      const relations = joins.map(j => `${j.table}:${j.foreignKey}(${j.columns || '*'})`).join(', ')
-      select = `${baseTable}(${relations})`
+      const relations = joins.map(function(j) {
+        const cols = j.columns || '*'
+        return j.table + ':' + j.foreignKey + '(' + cols + ')'
+      })
+      select = baseTable + '(' + relations.join(', ') + ')'
     }
     
     let query = supabase.from(baseTable).select(select)
     
-    Object.keys(conditions).forEach(key => {
+    Object.keys(conditions).forEach(function(key) {
       query = query.eq(key, conditions[key])
     })
     
     if (options.orderBy) {
-      const [column, direction] = options.orderBy.split(' ')
+      const parts = options.orderBy.split(' ')
+      const column = parts[0]
+      const direction = parts[1]
       query = query.order(column, { ascending: direction !== 'desc' })
     }
     
@@ -191,31 +291,39 @@ export const buildJoinQuery = async (baseTable, joins = [], conditions = {}, opt
     if (error) throw error
     return data
   } else {
-    // MySQL: construir JOIN manualmente
-    let sql = `SELECT ${baseTable}.*`
+    let sql = 'SELECT ' + baseTable + '.*'
     
-    joins.forEach(join => {
-      sql += `, ${join.table}.${join.columns || '*'}`
+    joins.forEach(function(join) {
+      const cols = join.columns || '*'
+      sql += ', ' + join.table + '.' + cols
     })
     
-    sql += ` FROM ${baseTable}`
+    sql += ' FROM ' + baseTable
     
-    joins.forEach(join => {
-      sql += ` LEFT JOIN ${join.table} ON ${baseTable}.${join.foreignKey} = ${join.table}.${join.on}`
+    joins.forEach(function(join) {
+      sql += ' LEFT JOIN ' + join.table + ' ON ' + baseTable + '.' + join.foreignKey + ' = ' + join.table + '.' + join.on
     })
     
     if (Object.keys(conditions).length > 0) {
-      const whereClause = Object.keys(conditions)
-        .map(key => `${baseTable}.${key} = ?`)
-        .join(' AND ')
-      sql += ` WHERE ${whereClause}`
+      const keys = Object.keys(conditions)
+      const whereParts = keys.map(function(key) {
+        return baseTable + '.' + key + ' = ?'
+      })
+      sql += ' WHERE ' + whereParts.join(' AND ')
     }
     
     if (options.orderBy) {
-      sql += ` ORDER BY ${options.orderBy}`
+      sql += ' ORDER BY ' + options.orderBy
     }
     
-    return await mysqlClient.queryMySQL(sql, Object.values(conditions))
+    const client = await getMySQLClient()
+    if (!client) {
+      throw new Error('MySQL client no disponible')
+    }
+    const queryMySQL = getMySQLFunction(client, 'queryMySQL')
+    if (!queryMySQL) {
+      throw new Error('queryMySQL no disponible')
+    }
+    return await queryMySQL(sql, Object.values(conditions))
   }
 }
-

@@ -3,8 +3,30 @@
  * Reemplaza Supabase Auth cuando se usa MySQL
  */
 
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
+// Importaciones dinámicas para evitar problemas en build cuando no se usa MySQL
+let bcrypt = null
+let jwt = null
+
+const getBcrypt = async () => {
+  if (!bcrypt) {
+    bcrypt = await import('bcryptjs').catch(() => null)
+    if (!bcrypt) {
+      throw new Error('bcryptjs no está disponible')
+    }
+  }
+  return bcrypt
+}
+
+const getJWT = async () => {
+  if (!jwt) {
+    jwt = await import('jsonwebtoken').catch(() => null)
+    if (!jwt) {
+      throw new Error('jsonwebtoken no está disponible')
+    }
+  }
+  return jwt
+}
+
 import { db } from './databaseAdapter'
 import { buildJoinQuery } from './databaseAdapter'
 
@@ -15,21 +37,24 @@ const JWT_EXPIRES_IN = '7d'
  * Hashea una contraseña
  */
 export const hashPassword = async (password) => {
-  return await bcrypt.hash(password, 10)
+  const bcryptLib = await getBcrypt()
+  return await bcryptLib.hash(password, 10)
 }
 
 /**
  * Verifica una contraseña
  */
 export const verifyPassword = async (password, hash) => {
-  return await bcrypt.compare(password, hash)
+  const bcryptLib = await getBcrypt()
+  return await bcryptLib.compare(password, hash)
 }
 
 /**
  * Genera un token JWT
  */
-export const generateToken = (userId, email) => {
-  return jwt.sign(
+export const generateToken = async (userId, email) => {
+  const jwtLib = await getJWT()
+  return jwtLib.sign(
     { userId, email },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
@@ -39,9 +64,10 @@ export const generateToken = (userId, email) => {
 /**
  * Verifica un token JWT
  */
-export const verifyToken = (token) => {
+export const verifyToken = async (token) => {
   try {
-    return jwt.verify(token, JWT_SECRET)
+    const jwtLib = await getJWT()
+    return jwtLib.verify(token, JWT_SECRET)
   } catch (error) {
     return null
   }
@@ -91,7 +117,7 @@ export const loginMySQL = async (usernameOrEmail, password) => {
     }
     
     // Generar token
-    const token = generateToken(usuario.id, usuario.email)
+    const token = await generateToken(usuario.id, usuario.email)
     
     // Obtener información completa del usuario con joins
     const userInfo = await buildJoinQuery(
