@@ -426,6 +426,49 @@ export const crmService = {
     }
   },
 
+  createUsuario: async (usuarioData) => {
+    try {
+      // MySQL: usar endpoint /api/auth
+      const API_BASE_URL = import.meta.env.DEV
+        ? 'http://localhost:3000'
+        : (import.meta.env.VITE_API_URL || '')
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'createUser',
+          email: usuarioData.email,
+          password: usuarioData.password,
+          username: usuarioData.username,
+          nombreCompleto: usuarioData.nombre_completo || null,
+          departamentoId: usuarioData.departamento_id || null,
+          rolId: usuarioData.rol_id || null
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || 'Error al crear usuario')
+      }
+
+      return {
+        success: true,
+        message: result.message || 'Usuario creado correctamente',
+        data: { userId: result.userId }
+      }
+    } catch (error) {
+      console.error('Error al crear usuario:', error)
+      return {
+        success: false,
+        message: error.message || 'Error al crear usuario'
+      }
+    }
+  },
+
   // ========== ROLES ==========
   getRoles: async () => {
     try {

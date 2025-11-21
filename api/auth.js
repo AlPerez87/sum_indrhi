@@ -5,7 +5,7 @@
 
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
-import { select, query } from './db.js'
+import { select, query, getPool } from './db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_JWT_SECRET || 'tu-secret-key-cambiar-en-produccion'
 const JWT_EXPIRES_IN = '7d'
@@ -221,6 +221,74 @@ export default async function handler(req, res) {
         return res.status(200).json({ 
           success: true, 
           message: 'Contraseña actualizada correctamente' 
+        })
+
+      case 'createUser':
+        // Crear nuevo usuario
+        const { email: newEmail, password: newPasswordUser, username: newUsername, nombreCompleto, departamentoId, rolId } = req.body
+        
+        if (!newEmail || !newPasswordUser || !newUsername) {
+          return res.status(400).json({ 
+            error: 'Email, contraseña y username son requeridos', 
+            success: false 
+          })
+        }
+        
+        // Verificar que el email no exista
+        const emailExists = await query(
+          'SELECT id FROM usuarios WHERE email = ? LIMIT 1',
+          [newEmail]
+        )
+        
+        if (emailExists && emailExists.length > 0) {
+          return res.status(400).json({ 
+            error: 'Ya existe un usuario con este email', 
+            success: false 
+          })
+        }
+        
+        // Verificar que el username no exista
+        const usernameExists = await query(
+          'SELECT id FROM sum_usuarios_departamentos WHERE username = ? LIMIT 1',
+          [newUsername]
+        )
+        
+        if (usernameExists && usernameExists.length > 0) {
+          return res.status(400).json({ 
+            error: 'Ya existe un usuario con este username', 
+            success: false 
+          })
+        }
+        
+        // Hashear la contraseña
+        const newPasswordHash = await hashPassword(newPasswordUser)
+        
+        // Crear usuario en la tabla usuarios
+        const pool = getPool()
+        const [insertUsuarioResult] = await pool.execute(
+          'INSERT INTO usuarios (email, password_hash, email_verificado) VALUES (?, ?, ?)',
+          [newEmail, newPasswordHash, true]
+        )
+        
+        const newUserId = insertUsuarioResult.insertId
+        
+        // Crear registro en sum_usuarios_departamentos
+        await query(
+          'INSERT INTO sum_usuarios_departamentos (user_id, username, email, nombre_completo, departamento_id, rol_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            newUserId,
+            newUsername,
+            newEmail,
+            nombreCompleto || null,
+            departamentoId ? parseInt(departamentoId) : null,
+            rolId ? parseInt(rolId) : null
+          ]
+        )
+        
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Usuario creado correctamente',
+          userId: newUserId
         })
 
       default:

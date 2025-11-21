@@ -25,7 +25,7 @@ const mysqlConfig = {
 
 let pool = null
 
-function getPool() {
+export function getPool() {
   if (!pool) {
     pool = mysql.createPool({
       ...mysqlConfig,

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Users, Search, RefreshCw, AlertCircle, Edit, Key, Check } from 'lucide-react'
+import { Users, Search, RefreshCw, AlertCircle, Edit, Key, Check, UserPlus } from 'lucide-react'
 import { crmService } from '../services/crmService'
 import Pagination from './Pagination'
 import { usePagination } from '../hooks/usePagination'
 import EditarUsuarioModal from './EditarUsuarioModal'
 import CambiarPasswordAdminModal from './CambiarPasswordAdminModal'
+import CrearUsuarioModal from './CrearUsuarioModal'
 
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([])
@@ -13,6 +14,7 @@ const Usuarios = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showEditModal, setShowEditModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedUsuario, setSelectedUsuario] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
 
@@ -47,6 +49,12 @@ const Usuarios = () => {
 
   const handleEditSuccess = () => {
     setSuccessMessage('Usuario actualizado correctamente')
+    setTimeout(() => setSuccessMessage(''), 3000)
+    fetchData()
+  }
+
+  const handleCreateSuccess = () => {
+    setSuccessMessage('Usuario creado correctamente')
     setTimeout(() => setSuccessMessage(''), 3000)
     fetchData()
   }
@@ -94,14 +102,24 @@ const Usuarios = () => {
           </div>
         </div>
         
-        <button
-          onClick={fetchData}
-          className="btn-secondary flex items-center gap-2"
-          disabled={loading}
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary flex items-center gap-2"
+            disabled={loading}
+          >
+            <UserPlus className="w-4 h-4" />
+            Nuevo Usuario
+          </button>
+          <button
+            onClick={fetchData}
+            className="btn-secondary flex items-center gap-2"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -263,6 +281,13 @@ const Usuarios = () => {
             setTimeout(() => setSuccessMessage(''), 3000)
             fetchData()
           }}
+        />
+      )}
+
+      {showCreateModal && (
+        <CrearUsuarioModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
         />
       )}
     </div>
