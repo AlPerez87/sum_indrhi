@@ -1,15 +1,9 @@
 /**
  * Configuración de Base de Datos
- * Permite cambiar entre Supabase y MySQL fácilmente
+ * Sistema configurado para usar MySQL únicamente
  */
 
-export const DATABASE_TYPE = import.meta.env.VITE_DATABASE_TYPE || 'supabase' // 'supabase' o 'mysql'
-
 export const DATABASE_CONFIG = {
-  supabase: {
-    url: import.meta.env.VITE_SUPABASE_URL,
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-  },
   mysql: {
     host: import.meta.env.VITE_MYSQL_HOST || 'localhost',
     port: parseInt(import.meta.env.VITE_MYSQL_PORT || '3306'),
@@ -20,6 +14,5 @@ export const DATABASE_CONFIG = {
   }
 }
 
-export const isSupabase = () => DATABASE_TYPE === 'supabase'
-export const isMySQL = () => DATABASE_TYPE === 'mysql'
+export const isMySQL = () => true
 
