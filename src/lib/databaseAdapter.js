@@ -12,6 +12,9 @@ import { isSupabase, isMySQL } from '../config/database'
 /**
  * Importación dinámica de mysqlClient solo cuando sea necesario
  * Esto evita problemas en el build cuando solo se usa Supabase
+ * 
+ * En producción (Vercel), usa mysqlClientApi que hace peticiones HTTP
+ * En desarrollo local, usa mysqlClient que se conecta directamente
  */
 let mysqlClientModule = null
 const getMySQLClient = async () => {
@@ -21,7 +24,9 @@ const getMySQLClient = async () => {
   
   if (!mysqlClientModule) {
     try {
-      mysqlClientModule = await import('./mysqlClient')
+      // Siempre usar API Routes porque mysql2 no puede ejecutarse en el navegador
+      // Las API Routes funcionan tanto en desarrollo como en producción
+      mysqlClientModule = await import('./mysqlClientApi')
     } catch (error) {
       console.warn('MySQL client no disponible:', error)
       return null
@@ -252,6 +257,94 @@ export const db = {
       return await queryMySQL(sql, params)
     } else {
       throw new Error('Query SQL personalizada solo disponible en MySQL')
+    }
+  },
+  
+  /**
+   * Inserta un registro en una tabla
+   * @param {string} table - Nombre de la tabla
+   * @param {object} data - Datos a insertar
+   * @returns {Promise<object>} - Registro insertado
+   */
+  insert: async function(table, data) {
+    if (isSupabase()) {
+      const { data: result, error } = await supabase
+        .from(table)
+        .insert([data])
+        .select()
+        .single()
+      
+      if (error) throw error
+      return result
+    } else {
+      const client = await getMySQLClient()
+      if (!client) {
+        throw new Error('MySQL client no disponible')
+      }
+      const insertMySQL = getMySQLFunction(client, 'insertMySQL')
+      if (!insertMySQL) {
+        throw new Error('insertMySQL no disponible')
+      }
+      return await insertMySQL(table, data)
+    }
+  },
+  
+  /**
+   * Actualiza un registro en una tabla
+   * @param {string} table - Nombre de la tabla
+   * @param {number|string} id - ID del registro a actualizar
+   * @param {object} data - Datos a actualizar
+   * @returns {Promise<object>} - Registro actualizado
+   */
+  update: async function(table, id, data) {
+    if (isSupabase()) {
+      const { data: result, error } = await supabase
+        .from(table)
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return result
+    } else {
+      const client = await getMySQLClient()
+      if (!client) {
+        throw new Error('MySQL client no disponible')
+      }
+      const updateMySQL = getMySQLFunction(client, 'updateMySQL')
+      if (!updateMySQL) {
+        throw new Error('updateMySQL no disponible')
+      }
+      return await updateMySQL(table, id, data)
+    }
+  },
+  
+  /**
+   * Elimina un registro de una tabla
+   * @param {string} table - Nombre de la tabla
+   * @param {number|string} id - ID del registro a eliminar
+   * @returns {Promise<object>} - Resultado de la eliminación
+   */
+  remove: async function(table, id) {
+    if (isSupabase()) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+      return { success: true }
+    } else {
+      const client = await getMySQLClient()
+      if (!client) {
+        throw new Error('MySQL client no disponible')
+      }
+      const deleteMySQL = getMySQLFunction(client, 'deleteMySQL')
+      if (!deleteMySQL) {
+        throw new Error('deleteMySQL no disponible')
+      }
+      return await deleteMySQL(table, id)
     }
   }
 }

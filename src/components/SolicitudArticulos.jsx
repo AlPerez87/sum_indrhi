@@ -35,6 +35,31 @@ const SolicitudArticulos = () => {
   // Obtener datos del usuario logueado
   const [currentUser, setCurrentUser] = useState(null)
 
+  // Función helper para normalizar fecha al formato YYYY-MM-DD para inputs de tipo date
+  const normalizeDate = (dateValue) => {
+    if (!dateValue) return ''
+    
+    // Si ya está en formato YYYY-MM-DD, retornarlo directamente
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue
+    }
+    
+    // Crear objeto Date desde el valor
+    const date = new Date(dateValue)
+    
+    // Verificar que la fecha es válida
+    if (isNaN(date.getTime())) {
+      return ''
+    }
+    
+    // Formatear a YYYY-MM-DD
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    
+    return `${year}-${month}-${day}`
+  }
+
   // Cargar solicitudes y artículos
   useEffect(() => {
     loadData()
@@ -241,7 +266,7 @@ const SolicitudArticulos = () => {
       setSelectedSolicitud(result.data)
       setFormData({
         numero_solicitud: result.data.numero_solicitud,
-        fecha: result.data.fecha,
+        fecha: normalizeDate(result.data.fecha),
         departamento: result.data.departamento,
         departamento_id: result.data.departamento_id
       })

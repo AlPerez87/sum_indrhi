@@ -3,62 +3,49 @@
  * Reemplaza Supabase Auth cuando se usa MySQL
  */
 
-// Importaciones dinámicas para evitar problemas en build cuando no se usa MySQL
-let bcrypt = null
-let jwt = null
+/**
+ * Sistema de Autenticación para MySQL
+ * Reemplaza Supabase Auth cuando se usa MySQL
+ * 
+ * Las operaciones de autenticación ahora se hacen en el servidor
+ * a través de la API /api/auth
+ */
 
-const getBcrypt = async () => {
-  if (!bcrypt) {
-    bcrypt = await import('bcryptjs').catch(() => null)
-    if (!bcrypt) {
-      throw new Error('bcryptjs no está disponible')
-    }
-  }
-  return bcrypt
-}
-
-const getJWT = async () => {
-  if (!jwt) {
-    jwt = await import('jsonwebtoken').catch(() => null)
-    if (!jwt) {
-      throw new Error('jsonwebtoken no está disponible')
-    }
-  }
-  return jwt
-}
-
-import { db } from './databaseAdapter'
-import { buildJoinQuery } from './databaseAdapter'
-
-const JWT_SECRET = import.meta.env.VITE_JWT_SECRET || 'tu-secret-key-cambiar-en-produccion'
-const JWT_EXPIRES_IN = '7d'
+// Constantes
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:3000' 
+  : (import.meta.env.VITE_API_URL || '')
 
 /**
- * Hashea una contraseña
+ * Hashea una contraseña (llama al servidor)
  */
 export const hashPassword = async (password) => {
-  const bcryptLib = await getBcrypt()
-  return await bcryptLib.hash(password, 10)
+  const response = await fetch(`${API_BASE_URL}/api/auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'hash', password })
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error)
+  return data.hash
 }
 
 /**
- * Verifica una contraseña
+ * Verifica una contraseña (se hace en el servidor durante login)
  */
 export const verifyPassword = async (password, hash) => {
-  const bcryptLib = await getBcrypt()
-  return await bcryptLib.compare(password, hash)
+  // Esta función ya no se usa directamente desde el cliente
+  // La verificación se hace en el servidor durante el login
+  throw new Error('verifyPassword debe llamarse desde el servidor')
 }
 
 /**
- * Genera un token JWT
+ * Genera un token JWT (se hace en el servidor durante login)
  */
 export const generateToken = async (userId, email) => {
-  const jwtLib = await getJWT()
-  return jwtLib.sign(
-    { userId, email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  )
+  // Esta función ya no se usa directamente desde el cliente
+  // El token se genera en el servidor durante el login
+  throw new Error('generateToken debe llamarse desde el servidor')
 }
 
 /**
@@ -66,110 +53,88 @@ export const generateToken = async (userId, email) => {
  */
 export const verifyToken = async (token) => {
   try {
-    const jwtLib = await getJWT()
-    return jwtLib.verify(token, JWT_SECRET)
+    const response = await fetch(`${API_BASE_URL}/api/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'verify', token })
+    })
+    const data = await response.json()
+    if (!response.ok) return null
+    return data.data
   } catch (error) {
     return null
   }
 }
 
 /**
- * Login de usuario
+ * Login de usuario (ahora usa el servidor)
  */
 export const loginMySQL = async (usernameOrEmail, password) => {
   try {
-    // Buscar usuario por email o username
-    let userData = null
+    const url = `${API_BASE_URL}/api/auth`
+    console.log('🔐 Login request to:', url)
     
-    if (usernameOrEmail.includes('@')) {
-      // Buscar por email
-      userData = await db.from('sum_usuarios_departamentos').findOne({ email: usernameOrEmail })
-    } else {
-      // Buscar por username
-      userData = await db.from('sum_usuarios_departamentos').findOne({ username: usernameOrEmail })
-    }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'login',
+        usernameOrEmail,
+        password
+      })
+    })
     
-    if (!userData) {
-      return {
-        success: false,
-        message: 'Usuario no encontrado'
+    console.log('📥 Login response status:', response.status, response.statusText)
+    console.log('📥 Login response headers:', response.headers.get('content-type'))
+    
+    // Verificar que la respuesta sea JSON
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text()
+      console.error('❌ Respuesta no es JSON:', text.substring(0, 200))
+      
+      // Mensaje de error más claro
+      if (response.status === 404) {
+        throw new Error('El endpoint /api/auth no existe. ¿Está el servidor Express corriendo en el puerto 3000?')
+      } else if (response.status >= 500) {
+        throw new Error(`Error del servidor (${response.status}). Revisa los logs del servidor Express.`)
+      } else {
+        throw new Error(`El servidor respondió con ${contentType || 'text/html'}. ¿Está el servidor Express corriendo en http://localhost:3000?`)
       }
     }
     
-    // Obtener el usuario de la tabla usuarios
-    const usuario = await db.from('usuarios').findOne({ id: userData.user_id })
+    let data
+    try {
+      data = await response.json()
+    } catch (parseError) {
+      const text = await response.text()
+      console.error('❌ Error parseando JSON:', text.substring(0, 200))
+      throw new Error(`El servidor no respondió con JSON válido. Respuesta: ${text.substring(0, 100)}`)
+    }
     
-    if (!usuario) {
+    if (!response.ok || !data.success) {
       return {
         success: false,
-        message: 'Usuario no encontrado en el sistema de autenticación'
+        message: data.message || 'Error al iniciar sesión'
       }
     }
     
-    // Verificar contraseña
-    const passwordValid = await verifyPassword(password, usuario.password_hash)
-    
-    if (!passwordValid) {
-      return {
-        success: false,
-        message: 'Contraseña incorrecta'
-      }
-    }
-    
-    // Generar token
-    const token = await generateToken(usuario.id, usuario.email)
-    
-    // Obtener información completa del usuario con joins
-    const userInfo = await buildJoinQuery(
-      'sum_usuarios_departamentos',
-      [
-        {
-          table: 'sum_departamentos',
-          foreignKey: 'departamento_id',
-          on: 'id',
-          columns: 'id, codigo, departamento'
-        },
-        {
-          table: 'sum_roles',
-          foreignKey: 'rol_id',
-          on: 'id',
-          columns: 'id, nombre, descripcion'
-        }
-      ],
-      { id: userData.id }
-    )
-    
-    const userInfoData = userInfo[0] || userData
-    const rolBD = userInfoData?.sum_roles?.nombre || 'Usuario'
-    
+    // Guardar en localStorage
     const sessionData = {
       user: {
-        id: usuario.id,
-        email: usuario.email
+        id: data.user.id,
+        email: data.user.email
       },
-      access_token: token,
-      expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 días
+      access_token: data.token,
+      expires_at: data.expires_at
     }
     
-    const userDataResponse = {
-      id: usuario.id,
-      email: usuario.email,
-      username: userInfoData?.username || usuario.email.split('@')[0],
-      nombre_completo: userInfoData?.nombre_completo || userInfoData?.username || usuario.email.split('@')[0],
-      rol: rolBD,
-      roles: [rolBD],
-      perfil: rolBD,
-      departamento_id: userInfoData?.departamento_id || null,
-      departamento: userInfoData?.sum_departamentos?.departamento || null,
-      display_name: userInfoData?.nombre_completo || userInfoData?.username || usuario.email.split('@')[0]
-    }
-    
-    localStorage.setItem('indrhi_user', JSON.stringify(userDataResponse))
+    localStorage.setItem('indrhi_user', JSON.stringify(data.user))
     localStorage.setItem('indrhi_session', JSON.stringify(sessionData))
     
     return {
       success: true,
-      user: userDataResponse
+      user: data.user
     }
   } catch (error) {
     console.error('Error en loginMySQL:', error)
@@ -189,12 +154,17 @@ export const getCurrentUserMySQL = async () => {
     if (!sessionStr) return null
     
     const session = JSON.parse(sessionStr)
-    const tokenData = verifyToken(session.access_token)
+    const tokenData = await verifyToken(session.access_token)
     
     if (!tokenData) return null
     
-    const usuario = await db.from('usuarios').findOne({ id: tokenData.userId })
-    return usuario
+    // Obtener usuario desde localStorage (ya está guardado)
+    const userStr = localStorage.getItem('indrhi_user')
+    if (userStr) {
+      return JSON.parse(userStr)
+    }
+    
+    return null
   } catch (error) {
     console.error('Error obteniendo usuario actual:', error)
     return null

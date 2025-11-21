@@ -94,6 +94,7 @@ const Login = ({ onLogin }) => {
                 placeholder="Ingrese su usuario o correo"
                 disabled={loading}
                 autoComplete="username"
+                autoFocus
                 className="input-field"
               />
             </div>

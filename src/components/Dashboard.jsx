@@ -285,8 +285,8 @@ const Dashboard = ({ onLogout, children }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header - Ocupa todo el ancho */}
-      <header className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 w-full">
-        <div className="flex items-center justify-between px-4 py-4">
+      <header className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-50 w-full">
+        <div className="flex items-center justify-between px-4 py-4 w-full">
           {/* Left Side: Logo y botón contraer */}
           <div className="flex items-center gap-4">
             {/* Menu Button Mobile */}
@@ -592,7 +592,7 @@ const Dashboard = ({ onLogout, children }) => {
         )}
 
         {/* Main Content */}
-        <main className={`flex-1 transition-all duration-300 ${
+        <main className={`flex-1 transition-all duration-300 pt-[73px] ${
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
         }`}>
           <div className="p-6 lg:p-8">
