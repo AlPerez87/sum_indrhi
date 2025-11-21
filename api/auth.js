@@ -66,11 +66,16 @@ export default async function handler(req, res) {
     const { action, usernameOrEmail, password, token, userId, newPassword } = req.body
     
     console.log('🔐 authHandler - action:', action)
+    console.log('🔐 authHandler - req.body completo:', JSON.stringify(req.body, null, 2))
     console.log('🔐 authHandler - usernameOrEmail:', usernameOrEmail)
 
     if (!action) {
+      console.log('❌ No se recibió acción')
       return res.status(400).json({ error: 'Acción requerida', success: false })
     }
+
+    console.log('✅ Acción recibida:', action)
+    console.log('✅ Tipo de acción:', typeof action)
 
     switch (action) {
       case 'login':
@@ -189,24 +194,27 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'userId y newPassword requeridos', success: false })
         }
         
+        // Variable para almacenar el ID del usuario en la tabla usuarios
+        let targetUserId = userId
+        
         // Buscar el usuario en la tabla usuarios (no en sum_usuarios_departamentos)
         const usuarioQuery = await query(
           'SELECT id FROM usuarios WHERE id = ? LIMIT 1',
-          [userId]
+          [targetUserId]
         )
         
         if (!usuarioQuery || usuarioQuery.length === 0) {
           // Si no existe en usuarios, buscar en sum_usuarios_departamentos para obtener el user_id
           const usuarioDeptoQuery = await query(
             'SELECT user_id FROM sum_usuarios_departamentos WHERE id = ? LIMIT 1',
-            [userId]
+            [targetUserId]
           )
           
           if (!usuarioDeptoQuery || usuarioDeptoQuery.length === 0 || !usuarioDeptoQuery[0].user_id) {
             return res.status(404).json({ error: 'Usuario no encontrado', success: false })
           }
           
-          userId = usuarioDeptoQuery[0].user_id
+          targetUserId = usuarioDeptoQuery[0].user_id
         }
         
         // Hashear la nueva contraseña
@@ -215,7 +223,7 @@ export default async function handler(req, res) {
         // Actualizar en la tabla usuarios
         await query(
           'UPDATE usuarios SET password_hash = ? WHERE id = ?',
-          [passwordHash, userId]
+          [passwordHash, targetUserId]
         )
         
         return res.status(200).json({ 
@@ -225,9 +233,14 @@ export default async function handler(req, res) {
 
       case 'createUser':
         // Crear nuevo usuario
+        console.log('📝 Creando usuario...')
+        console.log('📝 req.body:', JSON.stringify(req.body, null, 2))
         const { email: newEmail, password: newPasswordUser, username: newUsername, nombreCompleto, departamentoId, rolId } = req.body
         
+        console.log('📝 Datos extraídos:', { newEmail, newPasswordUser: '***', newUsername, nombreCompleto, departamentoId, rolId })
+        
         if (!newEmail || !newPasswordUser || !newUsername) {
+          console.log('❌ Faltan campos requeridos')
           return res.status(400).json({ 
             error: 'Email, contraseña y username son requeridos', 
             success: false 
@@ -292,7 +305,10 @@ export default async function handler(req, res) {
         })
 
       default:
-        return res.status(400).json({ error: 'Acción no válida' })
+        console.log('❌ Acción no reconocida:', action)
+        console.log('❌ Tipo:', typeof action)
+        console.log('❌ Acciones válidas: login, verify, hash, updatePassword, createUser')
+        return res.status(400).json({ error: `Acción no válida: ${action}` })
     }
   } catch (error) {
     console.error('Error en API de autenticación:', error)
