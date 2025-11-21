@@ -114,13 +114,13 @@ export const crmService = {
 
   createArticulo: async (articulo) => {
     try {
-        // MySQL: usar databaseAdapter
-        const data = await db.insert('sum_articulos', articulo)
-        return {
-          success: true,
-          message: 'Artículo creado correctamente',
-          data
-        }
+      // MySQL: usar databaseAdapter
+      const data = await db.insert('sum_articulos', articulo)
+      return {
+        success: true,
+        message: 'Artículo creado correctamente',
+        data
+      }
     } catch (error) {
       console.error('Error al crear artículo:', error)
       // Manejar errores de duplicado en MySQL
@@ -148,15 +148,15 @@ export const crmService = {
         }
       }
 
-        // MySQL: usar databaseAdapter
-        const data = await db.update('sum_articulos', id, articulo)
-        // Obtener el registro actualizado
-        const updated = await db.query('SELECT * FROM sum_articulos WHERE id = ?', [id])
-        return {
-          success: true,
-          message: 'Artículo actualizado correctamente',
-          data: updated[0] || data
-        }
+      // MySQL: usar databaseAdapter
+      const data = await db.update('sum_articulos', id, articulo)
+      // Obtener el registro actualizado
+      const updated = await db.query('SELECT * FROM sum_articulos WHERE id = ?', [id])
+      return {
+        success: true,
+        message: 'Artículo actualizado correctamente',
+        data: updated[0] || data
+      }
     } catch (error) {
       console.error('Error al actualizar artículo:', error)
       // Manejar errores de duplicado en MySQL
@@ -366,18 +366,16 @@ export const crmService = {
 
   updateUsuarioDepartamento: async (id, departamentoId) => {
     try {
-        .from('sum_usuarios_departamentos')
-        .update({ departamento_id: departamentoId })
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) throw error
+      // MySQL: actualizar departamento
+      await db.update('sum_usuarios_departamentos', id, { departamento_id: departamentoId })
+      
+      // Obtener el registro actualizado
+      const updated = await db.query('SELECT * FROM sum_usuarios_departamentos WHERE id = ?', [id])
 
       return {
         success: true,
         message: 'Departamento actualizado correctamente',
-        data
+        data: updated[0]
       }
     } catch (error) {
       console.error('Error al actualizar departamento:', error)
@@ -452,12 +450,8 @@ export const crmService = {
 
   createRol: async (rol) => {
     try {
-        .from('sum_roles')
-        .insert(rol)
-        .select()
-        .single()
-
-      if (error) throw error
+      // MySQL: crear rol
+      const data = await db.insert('sum_roles', rol)
 
       return {
         success: true,
@@ -566,11 +560,13 @@ export const crmService = {
   // ========== ENTRADA DE MERCANCÍA ==========
   getEntradasMercancia: async () => {
     try {
-        .from('sum_entrada_mercancia')
-        .select('*', { count: 'exact' })
-        .order('id', { ascending: false })
-
-      if (error) throw error
+      // MySQL: obtener todas las entradas
+      const sql = `SELECT * FROM sum_entrada_mercancia ORDER BY id DESC`
+      const data = await db.query(sql)
+      
+      // Contar total
+      const countResult = await db.query('SELECT COUNT(*) as total FROM sum_entrada_mercancia')
+      const count = countResult[0]?.total || 0
 
       // Calcular total_articulos para cada entrada desde articulos_cantidades_unidades
       const entradasConTotal = (data || []).map(entrada => ({
@@ -595,12 +591,18 @@ export const crmService = {
 
   getEntradaMercanciaDetalle: async (id) => {
     try {
-        .from('sum_entrada_mercancia')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (error) throw error
+      // MySQL: obtener detalle de entrada
+      const sql = `SELECT * FROM sum_entrada_mercancia WHERE id = ? LIMIT 1`
+      const results = await db.query(sql, [id])
+      
+      if (!results || results.length === 0) {
+        return {
+          success: false,
+          message: 'Entrada no encontrada'
+        }
+      }
+      
+      const data = results[0]
 
       // Parsear articulos_cantidades_unidades
       if (data.articulos_cantidades_unidades) {
@@ -732,57 +734,61 @@ export const crmService = {
 
   updateEntradaMercancia: async (id, entrada) => {
     try {
-      // Obtener la entrada original para revertir existencias
-        .from('sum_entrada_mercancia')
-        .select('articulos_cantidades_unidades')
-        .eq('id', id)
-        .single()
+      // MySQL: obtener la entrada original para revertir existencias
+      const entradaResults = await db.query(
+        'SELECT articulos_cantidades_unidades FROM sum_entrada_mercancia WHERE id = ? LIMIT 1',
+        [id]
+      )
 
-      if (errorOriginal) throw errorOriginal
+      if (!entradaResults || entradaResults.length === 0) {
+        throw new Error('Entrada no encontrada')
+      }
+
+      const entradaOriginal = entradaResults[0]
 
       // Revertir existencias de artículos originales
       if (entradaOriginal.articulos_cantidades_unidades) {
-        const articulosOriginales = JSON.parse(entradaOriginal.articulos_cantidades_unidades)
+        const articulosOriginales = typeof entradaOriginal.articulos_cantidades_unidades === 'string'
+          ? JSON.parse(entradaOriginal.articulos_cantidades_unidades)
+          : entradaOriginal.articulos_cantidades_unidades
         
         for (const articulo of articulosOriginales) {
-            .from('sum_articulos')
-            .select('id, existencia')
-            .eq('codigo', articulo.codigo)
-            .single()
+          const artResults = await db.query(
+            'SELECT id, existencia FROM sum_articulos WHERE codigo = ? LIMIT 1',
+            [articulo.codigo]
+          )
 
-          if (!artError && artData) {
+          if (artResults && artResults.length > 0) {
+            const artData = artResults[0]
             const nuevaExistencia = Math.max(0, (artData.existencia || 0) - articulo.cantidad)
-              .from('sum_articulos')
-              .update({ existencia: nuevaExistencia })
-              .eq('id', artData.id)
+            await db.update('sum_articulos', artData.id, { existencia: nuevaExistencia })
           }
         }
       }
 
       // Actualizar la entrada
-        .from('sum_entrada_mercancia')
-        .update(entrada)
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) throw error
+      await db.update('sum_entrada_mercancia', id, entrada)
+      
+      // Obtener el registro actualizado
+      const updated = await db.query('SELECT * FROM sum_entrada_mercancia WHERE id = ?', [id])
+      const data = updated[0]
 
       // Aplicar nuevas existencias de artículos
       if (entrada.articulos_cantidades_unidades) {
-        const articulos = JSON.parse(entrada.articulos_cantidades_unidades)
+        const articulos = typeof entrada.articulos_cantidades_unidades === 'string'
+          ? JSON.parse(entrada.articulos_cantidades_unidades)
+          : entrada.articulos_cantidades_unidades
         
         for (const articulo of articulos) {
-            .from('sum_articulos')
-            .select('id, existencia')
-            .eq('codigo', articulo.codigo)
-            .single()
+          const artResults = await db.query(
+            'SELECT id, existencia FROM sum_articulos WHERE codigo = ? LIMIT 1',
+            [articulo.codigo]
+          )
 
-          if (!artError && artData) {
+          if (artResults && artResults.length > 0) {
+            const artData = artResults[0]
             const nuevaExistencia = (artData.existencia || 0) + articulo.cantidad
-              .from('sum_articulos')
-              .update({ existencia: nuevaExistencia })
-              .eq('id', artData.id)
+            await db.update('sum_articulos', artData.id, { existencia: nuevaExistencia })
           }
         }
       }
@@ -1741,20 +1747,27 @@ export const crmService = {
   // ========== CAMBIAR CONTRASEÑA ==========
   cambiarPassword: async (userId, currentPassword, newPassword) => {
     try {
-      // Verificar contraseña actual
-      const userStr = localStorage.getItem('indrhi_user')
-      const user = userStr ? JSON.parse(userStr) : null
+      // MySQL: usar endpoint /api/auth para cambiar contraseña
+      const API_BASE_URL = import.meta.env.DEV
+        ? 'http://localhost:3000'
+        : (import.meta.env.VITE_API_URL || '')
       
-      if (!user || !user.email) {
-        throw new Error('Usuario no encontrado')
-      }
-
       // Verificar contraseña actual intentando hacer login
-        email: user.email,
-        password: currentPassword
+      const verifyResponse = await fetch(`${API_BASE_URL}/api/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'verifyPassword',
+          userId: userId,
+          password: currentPassword
+        })
       })
 
-      if (verifyError) {
+      const verifyResult = await verifyResponse.json()
+
+      if (!verifyResponse.ok || !verifyResult.success) {
         return {
           success: false,
           message: 'Contraseña actual incorrecta'
@@ -1762,14 +1775,27 @@ export const crmService = {
       }
 
       // Actualizar contraseña
-        password: newPassword
+      const response = await fetch(`${API_BASE_URL}/api/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'updatePassword',
+          userId: userId,
+          newPassword: newPassword
+        })
       })
 
-      if (updateError) throw updateError
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || 'Error al actualizar contraseña')
+      }
 
       return {
         success: true,
-        message: 'Contraseña actualizada correctamente'
+        message: result.message || 'Contraseña actualizada correctamente'
       }
     } catch (error) {
       console.error('Error al cambiar contraseña:', error)

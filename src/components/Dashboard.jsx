@@ -62,6 +62,10 @@ const Dashboard = ({ onLogout, children }) => {
            roleLower === 'suministro'
   }
 
+  // Obtener ID del usuario de forma estable para usar como dependencia
+  const userId = user?.id || null
+  const userRole = user?.roles?.[0] || user?.perfil || user?.rol || ''
+
   // Cerrar menús al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -79,11 +83,20 @@ const Dashboard = ({ onLogout, children }) => {
 
   // Cargar notificaciones de solicitudes aprobadas (solo si el usuario puede verlas)
   useEffect(() => {
-    if (!canViewNotifications()) return
+    // Verificar permisos antes de continuar
+    if (!user || !canViewNotifications()) {
+      return
+    }
+
+    let isMounted = true
 
     const loadNotifications = async () => {
+      if (!isMounted) return
+      
       try {
         const result = await crmService.getSolicitudesAprobadas()
+        if (!isMounted) return
+        
         if (result.success && result.data) {
           // Crear notificaciones desde las solicitudes aprobadas
           const newNotifications = result.data.map(solicitud => ({
@@ -105,22 +118,36 @@ const Dashboard = ({ onLogout, children }) => {
           // Combinar y limitar a las últimas 10
           const allNotifications = [...recentNotifications, ...savedNotifications].slice(0, 10)
           
-          setNotifications(allNotifications)
-          setUnreadCount(allNotifications.filter(n => !n.leida).length)
-          
-          // Guardar en localStorage
-          localStorage.setItem('indrhi_notifications', JSON.stringify(allNotifications))
+          if (isMounted) {
+            setNotifications(allNotifications)
+            setUnreadCount(allNotifications.filter(n => !n.leida).length)
+            
+            // Guardar en localStorage
+            localStorage.setItem('indrhi_notifications', JSON.stringify(allNotifications))
+          }
         }
       } catch (error) {
         console.error('Error al cargar notificaciones:', error)
       }
     }
 
+    // Cargar inmediatamente solo una vez al montar
     loadNotifications()
-    // Verificar cada 30 segundos
-    const interval = setInterval(loadNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [user])
+    
+    // Verificar cada 30 segundos (solo si el componente sigue montado)
+    const interval = setInterval(() => {
+      if (isMounted) {
+        loadNotifications()
+      }
+    }, 30000)
+    
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+    // Usar userId y userRole como dependencias estables en lugar del objeto user completo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, userRole])
 
   const toggleSubmenu = (key) => {
     // Si el sidebar está colapsado, no permitir abrir submenús

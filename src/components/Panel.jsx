@@ -29,6 +29,7 @@ const Panel = () => {
   const [loading, setLoading] = useState(true)
   const [recentActivity, setRecentActivity] = useState([])
   const [user, setUser] = useState(authService.getCurrentUser())
+  const [isLoadingData, setIsLoadingData] = useState(false)
 
   // Verificar si el usuario puede ver todas las solicitudes (Encargado de Suministro o Suministro)
   const canViewAllSolicitudes = () => {
@@ -66,6 +67,13 @@ const Panel = () => {
   }, [])
 
   const loadDashboardData = async (showLoading = true) => {
+    // Evitar múltiples llamadas simultáneas
+    if (isLoadingData) {
+      return
+    }
+
+    setIsLoadingData(true)
+    
     if (showLoading) {
       setLoading(true)
     }
@@ -366,6 +374,7 @@ const Panel = () => {
         setLoading(false)
       }
     } finally {
+      setIsLoadingData(false)
       if (showLoading) {
         setLoading(false)
       }
